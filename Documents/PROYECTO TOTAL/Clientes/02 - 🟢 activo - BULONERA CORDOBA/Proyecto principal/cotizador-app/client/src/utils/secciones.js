@@ -14,6 +14,7 @@ export const SECCIONES = [
       { to: '/productos', label: 'Productos', icon: '📦', key: 'productos' },
       { to: '/integraciones', label: 'Integraciones', icon: '🔌', key: 'integraciones' },
       { to: '/personal', label: 'Personal', icon: '🧑‍💼', key: 'personal' },
+      { to: '/configuraciones', label: 'Configuraciones', icon: '⚙️', key: 'configuraciones' },
     ],
   },
 ]

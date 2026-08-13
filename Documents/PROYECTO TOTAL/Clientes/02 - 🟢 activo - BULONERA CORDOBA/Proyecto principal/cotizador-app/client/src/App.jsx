@@ -10,6 +10,7 @@ import Cotizaciones from './pages/Cotizaciones'
 import Productos from './pages/Productos'
 import Integraciones from './pages/Integraciones'
 import Personal from './pages/Personal'
+import Configuraciones from './pages/Configuraciones'
 import ConfirmarPedido from './pages/ConfirmarPedido'
 import Proforma from './pages/Proforma'
 import Login from './pages/Login'
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="/productos" element={<Pagina seccion="productos"><Productos /></Pagina>} />
         <Route path="/integraciones" element={<Pagina seccion="integraciones"><Integraciones /></Pagina>} />
         <Route path="/personal" element={<Pagina seccion="personal"><Personal /></Pagina>} />
+        <Route path="/configuraciones" element={<Pagina seccion="configuraciones"><Configuraciones /></Pagina>} />
       </Routes>
     </AuthProvider>
   )

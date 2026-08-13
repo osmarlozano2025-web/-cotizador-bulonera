@@ -1,0 +1,304 @@
+import { useState, useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
+
+export default function Configuraciones() {
+  const { user, token } = useAuth()
+  const [config, setConfig] = useState(null)
+  const [cargando, setCargando] = useState(true)
+  const [editando, setEditando] = useState(null)
+  const [valores, setValores] = useState({})
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState(null)
+  const [exito, setExito] = useState(null)
+
+  useEffect(() => {
+    cargarConfiguraciones()
+  }, [])
+
+  const cargarConfiguraciones = async () => {
+    try {
+      setCargando(true)
+      const res = await fetch('/api/configuraciones')
+      if (!res.ok) throw new Error('Error al cargar configuraciones')
+      const data = await res.json()
+      setConfig(data)
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  const handleEditar = (clave, valor) => {
+    setEditando(clave)
+    setValores(JSON.parse(JSON.stringify(valor)))
+    setError(null)
+  }
+
+  const handleCancelar = () => {
+    setEditando(null)
+    setValores({})
+  }
+
+  const handleGuardar = async () => {
+    try {
+      setGuardando(true)
+      setError(null)
+
+      const res = await fetch(`/api/configuraciones/${editando}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ valor: valores }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || 'Error al guardar')
+      }
+
+      setExito('✅ Guardado correctamente')
+      setTimeout(() => setExito(null), 3000)
+      setEditando(null)
+      await cargarConfiguraciones()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  if (user?.rol !== 'Administrador') {
+    return (
+      <div className="p-4 text-red-600 bg-red-50 rounded-lg max-w-lg">
+        ⚠️ Solo administradores pueden acceder a esta sección
+      </div>
+    )
+  }
+
+  if (cargando) {
+    return <div className="p-4 text-gray-500">Cargando configuraciones...</div>
+  }
+
+  if (!config) {
+    return <div className="p-4 text-red-600">Error al cargar configuraciones</div>
+  }
+
+  return (
+    <div className="space-y-6 pb-8">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">⚙️ Configuraciones</h1>
+        <p className="text-sm text-gray-600 mt-1">Gestiona descuentos, tiempos y otras reglas de negocio</p>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          ❌ {error}
+        </div>
+      )}
+
+      {exito && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">
+          {exito}
+        </div>
+      )}
+
+      {/* DESCUENTOS POR FAMILIA */}
+      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-50 to-transparent px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">📦 Descuentos por Familia</h2>
+          <p className="text-xs text-gray-600 mt-1">Configura los descuentos aplicables a cada línea de productos</p>
+        </div>
+
+        <div className="space-y-3 p-6">
+          {config.descuentos_familia && Object.entries(config.descuentos_familia).map(([familia, desc]) => (
+            <div key={familia} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 capitalize">{familia}</h3>
+
+                {editando === `descuento_${familia}` ? (
+                  <div className="flex gap-3 mt-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-600 block mb-1">Descuento 1 (%)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={valores.desc_1 ?? 0}
+                        onChange={(e) => setValores({ ...valores, desc_1: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-600 block mb-1">Descuento 2 (%)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={valores.desc_2 ?? 0}
+                        onChange={(e) => setValores({ ...valores, desc_2: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 mt-2">
+                    <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                      {desc?.desc_1 ?? 0}% + {desc?.desc_2 ?? 0}%
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              {editando === `descuento_${familia}` ? (
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={handleGuardar}
+                    disabled={guardando}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50"
+                  >
+                    {guardando ? '⏳' : '✅'} Guardar
+                  </button>
+                  <button
+                    onClick={handleCancelar}
+                    disabled={guardando}
+                    className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded-lg transition disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleEditar(`descuento_${familia}`, desc || {})}
+                  className="ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+                >
+                  ✏️ Editar
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* DESCUENTOS POR PAGO */}
+      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-50 to-transparent px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">💳 Descuentos por Condición de Pago</h2>
+          <p className="text-xs text-gray-600 mt-1">Descuentos adicionales según forma de pago</p>
+        </div>
+
+        <div className="space-y-3 p-6">
+          {config.descuentos_pago && Object.entries(config.descuentos_pago).map(([tipo, desc]) => (
+            <div key={tipo} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900">
+                  {tipo === 'contado' ? '🏷️ Contado' : tipo === '30dias' ? '📅 30 días' : '📅 60 días'}
+                </h3>
+
+                {editando === `descuento_pago_${tipo}` ? (
+                  <div className="flex gap-3 mt-3">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-600 block mb-1">Descuento 1 (%)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={valores.desc_1 ?? 0}
+                        onChange={(e) => setValores({ ...valores, desc_1: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-600 block mb-1">Descuento 2 (%)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        value={valores.desc_2 ?? 0}
+                        onChange={(e) => setValores({ ...valores, desc_2: Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 mt-2">
+                    <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                      {desc?.desc_1 ?? 0}% + {desc?.desc_2 ?? 0}%
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              {editando === `descuento_pago_${tipo}` ? (
+                <div className="flex gap-2 ml-4">
+                  <button
+                    onClick={handleGuardar}
+                    disabled={guardando}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50"
+                  >
+                    {guardando ? '⏳' : '✅'} Guardar
+                  </button>
+                  <button
+                    onClick={handleCancelar}
+                    disabled={guardando}
+                    className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded-lg transition disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleEditar(`descuento_pago_${tipo}`, desc || {})}
+                  className="ml-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
+                >
+                  ✏️ Editar
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* STOCK Y CACHE */}
+      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-orange-50 to-transparent px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">⚡ Stock y Caché</h2>
+          <p className="text-xs text-gray-600 mt-1">Tiempos de reserva y actualizaciones</p>
+        </div>
+
+        <div className="space-y-4 p-6">
+          {config.stock && (
+            <>
+              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-sm font-medium text-gray-900">
+                  ⏱️ Tiempo de reserva de stock
+                </p>
+                <p className="text-2xl font-bold text-orange-600 mt-2">
+                  {config.stock.tiempo_reserva_minutos} minutos
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  Tiempo que se mantiene un producto reservado en un pedido sin confirmar
+                </p>
+              </div>
+
+              <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <p className="text-sm font-medium text-gray-900">
+                  🔄 TTL del caché de stock
+                </p>
+                <p className="text-2xl font-bold text-orange-600 mt-2">
+                  {config.stock.cache_ttl_segundos} segundos
+                </p>
+                <p className="text-xs text-gray-600 mt-2">
+                  Tiempo que se guarda en caché el estado del stock antes de consultar BD
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs text-blue-800">
+        ℹ️ <strong>Nota:</strong> Los cambios se aplican inmediatamente. El caché se actualiza automáticamente en los próximos 5 minutos.
+      </div>
+    </div>
+  )
+}
