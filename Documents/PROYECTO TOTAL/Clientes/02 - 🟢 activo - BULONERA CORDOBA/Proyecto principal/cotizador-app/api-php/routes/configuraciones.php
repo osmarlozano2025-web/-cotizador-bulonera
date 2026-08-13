@@ -35,7 +35,25 @@ function cargarConfiguracion() {
 function rutaConfiguracionesObtener() {
     $config = cargarConfiguracion();
 
+    // Depósitos con el nombre del responsable resuelto desde personal
+    $pdo = obtenerPDO();
+    $personal = [];
+    foreach ($pdo->query('SELECT id, nombre, usuario FROM personal WHERE activo = 1')->fetchAll(PDO::FETCH_ASSOC) as $p) {
+        $personal[$p['id']] = $p;
+    }
+
+    $depositos = [];
+    foreach (['buloneria', 'tolsen', 'mechas', 'electrodos'] as $fam) {
+        $dep = $config["deposito_$fam"] ?? null;
+        if (!$dep) continue;
+        $resp = $dep['responsableId'] ? ($personal[$dep['responsableId']] ?? null) : null;
+        $dep['responsableNombre'] = $resp['nombre'] ?? null;
+        $dep['responsableUsuario'] = $resp['usuario'] ?? null;
+        $depositos[$fam] = $dep;
+    }
+
     jsonSalida([
+        'depositos' => $depositos,
         'descuentos_familia' => [
             'buloneria' => $config['descuento_buloneria'] ?? ['desc_1' => 25, 'desc_2' => 0],
             'tolsen' => $config['descuento_tolsen'] ?? ['desc_1' => 55, 'desc_2' => 18],

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 export default function Configuraciones() {
   const { user, token } = useAuth()
   const [config, setConfig] = useState(null)
+  const [personal, setPersonal] = useState([])
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState(null)
   const [valores, setValores] = useState({})
@@ -13,7 +14,40 @@ export default function Configuraciones() {
 
   useEffect(() => {
     cargarConfiguraciones()
+    fetch('/api/personal', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => (r.ok ? r.json() : []))
+      .then(setPersonal)
+      .catch(() => {})
   }, [])
+
+  // Asigna el responsable de un depósito conservando el resto de su configuración
+  const asignarResponsable = async (familia, responsableId) => {
+    const dep = config.depositos[familia]
+    setGuardando(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/configuraciones/deposito_${familia}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          valor: {
+            numero: dep.numero,
+            familia,
+            nombre: dep.nombre,
+            responsableId: responsableId || null,
+          },
+        }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar')
+      setExito('✅ Responsable actualizado')
+      setTimeout(() => setExito(null), 3000)
+      await cargarConfiguraciones()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
 
   const cargarConfiguraciones = async () => {
     try {
@@ -105,6 +139,50 @@ export default function Configuraciones() {
           {exito}
         </div>
       )}
+
+      {/* DEPÓSITOS Y RESPONSABLES */}
+      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-emerald-50 to-transparent px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">🏭 Depósitos y responsables</h2>
+          <p className="text-xs text-gray-600 mt-1">
+            Cada familia se despacha desde su depósito. El responsable asignado sólo ve los pedidos de su depósito.
+          </p>
+        </div>
+
+        <div className="space-y-3 p-6">
+          {config.depositos && Object.entries(config.depositos).map(([familia, dep]) => (
+            <div key={familia} className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="shrink-0 w-9 h-9 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center">
+                  {dep.numero}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 capitalize">{familia}</h3>
+                  <p className="text-xs text-gray-500">
+                    {dep.responsableNombre
+                      ? `Responsable: ${dep.responsableNombre}`
+                      : 'Sin responsable asignado — lo ven todos los depósitos'}
+                  </p>
+                </div>
+              </div>
+
+              <select
+                value={dep.responsableId || ''}
+                onChange={(e) => asignarResponsable(familia, e.target.value)}
+                disabled={guardando}
+                className="shrink-0 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+              >
+                <option value="">— Sin asignar —</option>
+                {personal.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre} ({p.rol})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* DESCUENTOS POR FAMILIA */}
       <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">

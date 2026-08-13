@@ -1,24 +1,189 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
-  listarAprobaciones, aprobarFamilia, marcarEnviado,
+  listarAprobaciones, aprobarFamilia, marcarEnviado, confirmarItem, marcarSinStock,
   FAMILIAS_LABEL, linkConfirmacion, linkWhatsApp, linkGmail, linkOutlook,
 } from '../utils/aprobaciones'
+import { buscarProductos } from '../utils/productosApi'
 import { useAuth } from '../context/AuthContext'
 
-function TablaItems({ items }) {
+const money = (n) => `$${Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+
+/** Buscador acotado a la familia del depósito, para elegir un producto similar. */
+function BuscarReemplazo({ familia, onElegir, onCancelar }) {
+  const [query, setQuery] = useState('')
+  const [resultados, setResultados] = useState([])
+  const [buscando, setBuscando] = useState(false)
+
+  useEffect(() => {
+    if (query.trim().length < 2) { setResultados([]); return }
+    const t = setTimeout(() => {
+      setBuscando(true)
+      buscarProductos(query, familia)
+        .then(setResultados)
+        .catch(() => setResultados([]))
+        .finally(() => setBuscando(false))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [query, familia])
+
   return (
-    <table className="w-full text-xs">
-      <tbody className="divide-y divide-gray-100">
-        {items.map((it, i) => (
-          <tr key={i}>
-            <td className="py-1.5 pr-2">{it.cantidad}×</td>
-            <td className="py-1.5 pr-2">{it.descripcion}</td>
-            <td className="py-1.5 text-gray-400">{it.medida || ''}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="mt-2 bg-white border border-amber-300 rounded-lg p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-amber-800">Elegí el producto similar que sí tenés</p>
+        <button onClick={onCancelar} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+      </div>
+
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Buscar por descripción, código o medida..."
+        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+        autoFocus
+      />
+
+      {buscando && <p className="text-xs text-gray-400">Buscando...</p>}
+
+      {resultados.length > 0 && (
+        <div className="max-h-52 overflow-y-auto divide-y divide-gray-100 border rounded-lg">
+          {resultados.slice(0, 25).map((p, i) => (
+            <button
+              key={p.codigo || i}
+              onClick={() => onElegir(p)}
+              className="w-full text-left px-3 py-2 hover:bg-amber-50 transition"
+            >
+              <p className="text-xs font-medium text-gray-800">{p.descripcion}</p>
+              <p className="text-[11px] text-gray-400">
+                {p.codigo} {p.medida ? `· ${p.medida}` : ''} · {money(p.precioGranel ?? p.precio)}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={() => onElegir(null)}
+        className="w-full text-xs text-gray-500 hover:text-gray-700 border border-dashed border-gray-300 rounded-lg py-2 transition"
+      >
+        No hay reemplazo — marcar sólo como sin stock
+      </button>
+    </div>
+  )
+}
+
+/** Una fila de producto con su estado de stock y las acciones del depósito. */
+function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }) {
+  const [buscando, setBuscando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState(null)
+
+  const sinStock = item.estado === 'sin_stock'
+  const esReemplazo = item.estado === 'reemplazo'
+  const confirmado = item.estado === 'confirmado'
+  const pendiente = item.estado === 'pendiente'
+
+  const accion = async (fn) => {
+    setGuardando(true)
+    setError(null)
+    try {
+      await fn()
+      recargar()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setGuardando(false)
+      setBuscando(false)
+    }
+  }
+
+  const confirmar = () => accion(() => confirmarItem(pedidoId, item.id))
+
+  const sinStockCon = (producto) =>
+    accion(() =>
+      marcarSinStock(pedidoId, item.id, {
+        nota: 'Sin stock',
+        reemplazo: producto
+          ? {
+              codigo: producto.codigo,
+              descripcion: producto.descripcion,
+              medida: producto.medida,
+              marca: producto.marca,
+              subfamilia: producto.subfamilia,
+              precioGranel: producto.precioGranel ?? producto.precio ?? 0,
+              cantidad: item.cantidad,
+            }
+          : null,
+      })
+    )
+
+  return (
+    <div className={`py-2 ${esReemplazo ? 'pl-4 border-l-2 border-emerald-400' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className={`flex-1 min-w-0 ${sinStock ? 'line-through text-gray-400' : ''}`}>
+          <p className="text-xs text-gray-800">
+            <span className="font-semibold">{item.cantidadConfirmada ?? item.cantidad}×</span>{' '}
+            {item.descripcion}
+          </p>
+          <p className="text-[11px] text-gray-400">
+            {item.codigo} {item.medida ? `· ${item.medida}` : ''} · {money(item.precioGranel)}
+          </p>
+        </div>
+
+        <div className="shrink-0 flex items-center gap-1.5">
+          {sinStock && (
+            <span className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded px-2 py-0.5">
+              Sin stock
+            </span>
+          )}
+          {esReemplazo && (
+            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+              Reemplazo
+            </span>
+          )}
+          {confirmado && (
+            <span className="text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
+              ✓ Hay stock
+            </span>
+          )}
+
+          {pendiente && puedeRevisar && !bloqueado && !buscando && (
+            <>
+              <button
+                onClick={confirmar}
+                disabled={guardando}
+                className="text-[11px] font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded px-2 py-1 transition"
+              >
+                Hay stock
+              </button>
+              <button
+                onClick={() => setBuscando(true)}
+                disabled={guardando}
+                className="text-[11px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 rounded px-2 py-1 transition"
+              >
+                Sin stock
+              </button>
+            </>
+          )}
+
+          {pendiente && (!puedeRevisar || bloqueado) && (
+            <span className="text-[11px] text-gray-400">Sin revisar</span>
+          )}
+        </div>
+      </div>
+
+      {item.nota && !esReemplazo && (
+        <p className="text-[11px] text-gray-400 mt-0.5">{item.nota}</p>
+      )}
+      {error && <p className="text-[11px] text-red-600 mt-1">{error}</p>}
+
+      {buscando && (
+        <BuscarReemplazo
+          familia={familia}
+          onElegir={sinStockCon}
+          onCancelar={() => setBuscando(false)}
+        />
+      )}
+    </div>
   )
 }
 
@@ -62,14 +227,21 @@ function EnviarCliente({ pedido, onEnviado }) {
   )
 }
 
-function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar }) {
+function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId }) {
   const [aprobando, setAprobando] = useState(null)
+  const [errorFamilia, setErrorFamilia] = useState({})
 
   const aprobar = async (familia) => {
     setAprobando(familia)
-    try { await aprobarFamilia(pedido.id, familia) } catch {}
-    setAprobando(null)
-    recargar()
+    setErrorFamilia((e) => ({ ...e, [familia]: null }))
+    try {
+      await aprobarFamilia(pedido.id, familia)
+      recargar()
+    } catch (e) {
+      setErrorFamilia((prev) => ({ ...prev, [familia]: e.message }))
+    } finally {
+      setAprobando(null)
+    }
   }
 
   return (
@@ -78,39 +250,72 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar }) {
         <div>
           <p className="font-semibold text-gray-800">{pedido.clienteNombre}</p>
           <p className="text-xs text-gray-400">
-            {new Date(pedido.fechaCreacion).toLocaleString('es-AR')} · ${pedido.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+            {new Date(pedido.fechaCreacion).toLocaleString('es-AR')} · {money(pedido.total)}
           </p>
         </div>
       </div>
 
       <div className="divide-y divide-gray-100">
-        {pedido.subpedidos.map(sub => (
-          <div key={sub.familia} className="px-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {FAMILIAS_LABEL[sub.familia] || sub.familia} · Depósito
-              </p>
-              {sub.aprobado ? (
-                <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
-                  ✓ Aprobado
-                </span>
-              ) : puedeAprobar ? (
-                <button
-                  onClick={() => aprobar(sub.familia)}
-                  disabled={aprobando === sub.familia}
-                  className="text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50 rounded px-3 py-1 transition"
-                >
-                  {aprobando === sub.familia ? 'Aprobando...' : 'Aprobar stock'}
-                </button>
-              ) : (
-                <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
-                  Esperando aprobación
-                </span>
+        {pedido.subpedidos.map((sub) => {
+          // El depósito revisa su propio stock; el admin puede hacerlo por cualquiera.
+          const esMiDeposito = !sub.responsableId || sub.responsableId === usuarioId
+          const puedeRevisar = puedeAprobar && esMiDeposito
+          const pendientes = sub.itemsPendientes ?? 0
+
+          return (
+            <div key={sub.familia} className="px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {sub.depositoNombre || `${FAMILIAS_LABEL[sub.familia] || sub.familia} · Depósito`}
+                  </p>
+                  {pendientes > 0 && !sub.aprobado && (
+                    <p className="text-[11px] text-amber-600 mt-0.5">
+                      {pendientes} producto{pendientes === 1 ? '' : 's'} sin revisar
+                    </p>
+                  )}
+                </div>
+
+                {sub.aprobado ? (
+                  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
+                    ✓ Aprobado
+                  </span>
+                ) : puedeRevisar ? (
+                  <button
+                    onClick={() => aprobar(sub.familia)}
+                    disabled={aprobando === sub.familia || pendientes > 0}
+                    title={pendientes > 0 ? 'Revisá el stock de cada producto primero' : ''}
+                    className="text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed rounded px-3 py-1 transition"
+                  >
+                    {aprobando === sub.familia ? 'Aprobando...' : 'Aprobar depósito'}
+                  </button>
+                ) : (
+                  <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                    Esperando al depósito
+                  </span>
+                )}
+              </div>
+
+              {errorFamilia[sub.familia] && (
+                <p className="text-[11px] text-red-600 mb-1">{errorFamilia[sub.familia]}</p>
               )}
+
+              <div className="divide-y divide-gray-100">
+                {sub.items.map((it) => (
+                  <FilaItem
+                    key={it.id}
+                    item={it}
+                    pedidoId={pedido.id}
+                    familia={sub.familia}
+                    puedeRevisar={puedeRevisar}
+                    bloqueado={sub.aprobado}
+                    recargar={recargar}
+                  />
+                ))}
+              </div>
             </div>
-            <TablaItems items={sub.items} />
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {pedido.estado === 'esperando_confirmacion' && puedeEnviar && (
@@ -160,7 +365,14 @@ export default function Aprobaciones() {
       ) : (
         <div className="space-y-4">
           {pendientes.map(p => (
-            <TarjetaPedido key={p.id} pedido={p} recargar={cargar} puedeAprobar={puedeAprobar} puedeEnviar={puedeEnviar} />
+            <TarjetaPedido
+              key={p.id}
+              pedido={p}
+              recargar={cargar}
+              puedeAprobar={puedeAprobar}
+              puedeEnviar={puedeEnviar}
+              usuarioId={user?.id}
+            />
           ))}
         </div>
       )}

@@ -2,7 +2,18 @@ export const FAMILIAS_LABEL = {
   buloneria: 'Bulonería',
   tolsen: 'Tolsen',
   mechas: 'Mechas',
+  electrodos: 'Electrodos',
   otros: 'Otros',
+}
+
+/** Cada familia va a su propio depósito. El orden define el número de depósito. */
+export const FAMILIAS = ['buloneria', 'tolsen', 'mechas', 'electrodos']
+
+export const DEPOSITO_NUMERO = {
+  buloneria: 1,
+  tolsen: 2,
+  mechas: 3,
+  electrodos: 4,
 }
 
 function authHeaders() {
@@ -35,6 +46,27 @@ export const aprobarFamilia = (id, familia) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ familia }),
   })
+
+/** El depósito confirma que hay stock (opcionalmente una cantidad menor). */
+export const confirmarItem = (id, itemId, { cantidad, nota } = {}) =>
+  req(`/api/aprobaciones/${id}/items/${itemId}/confirmar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cantidad, nota }),
+  })
+
+/**
+ * El depósito marca que no hay stock. El item queda tachado.
+ * Si se pasa `reemplazo`, ese producto se agrega como item nuevo enlazado al original.
+ */
+export const marcarSinStock = (id, itemId, { nota, reemplazo } = {}) =>
+  req(`/api/aprobaciones/${id}/items/${itemId}/sin-stock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nota, reemplazo }),
+  })
+
+export const obtenerConfiguraciones = () => req('/api/configuraciones')
 
 export const marcarEnviado = (id) =>
   req(`/api/aprobaciones/${id}/marcar-enviado`, { method: 'POST' })
