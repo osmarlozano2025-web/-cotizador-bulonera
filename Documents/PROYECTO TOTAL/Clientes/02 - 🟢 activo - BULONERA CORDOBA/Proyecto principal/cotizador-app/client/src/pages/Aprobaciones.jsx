@@ -32,7 +32,7 @@ function BuscarReemplazo({ familia, onElegir, onCancelar }) {
     <div className="mt-2 bg-white border border-amber-300 rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-amber-800">Elegí el producto similar que sí tenés</p>
-        <button onClick={onCancelar} className="text-xs text-gray-400 hover:text-gray-600">Cancelar</button>
+        <button onClick={onCancelar} className="text-xs text-slate-500 hover:text-slate-300">Cancelar</button>
       </div>
 
       <input
@@ -43,18 +43,18 @@ function BuscarReemplazo({ familia, onElegir, onCancelar }) {
         autoFocus
       />
 
-      {buscando && <p className="text-xs text-gray-400">Buscando...</p>}
+      {buscando && <p className="text-xs text-slate-500">Buscando...</p>}
 
       {resultados.length > 0 && (
-        <div className="max-h-52 overflow-y-auto divide-y divide-gray-100 border rounded-lg">
+        <div className="max-h-52 overflow-y-auto divide-y divide-white/5 border rounded-lg">
           {resultados.slice(0, 25).map((p, i) => (
             <button
               key={p.codigo || i}
               onClick={() => onElegir(p)}
-              className="w-full text-left px-3 py-2 hover:bg-amber-50 transition"
+              className="w-full text-left px-3 py-2 hover:bg-amber-500/10 transition"
             >
-              <p className="text-xs font-medium text-gray-800">{p.descripcion}</p>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-xs font-medium text-slate-100">{p.descripcion}</p>
+              <p className="text-[11px] text-slate-500">
                 {p.codigo} {p.medida ? `· ${p.medida}` : ''} · {money(p.precioGranel ?? p.precio)}
               </p>
             </button>
@@ -64,7 +64,7 @@ function BuscarReemplazo({ familia, onElegir, onCancelar }) {
 
       <button
         onClick={() => onElegir(null)}
-        className="w-full text-xs text-gray-500 hover:text-gray-700 border border-dashed border-gray-300 rounded-lg py-2 transition"
+        className="w-full text-xs text-slate-400 hover:text-slate-200 border border-dashed border-white/10 rounded-lg py-2 transition"
       >
         No hay reemplazo — marcar sólo como sin stock
       </button>
@@ -120,18 +120,18 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
   return (
     <div className={`py-2 ${esReemplazo ? 'pl-4 border-l-2 border-emerald-400' : ''}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className={`flex-1 min-w-0 ${sinStock ? 'line-through text-gray-400' : ''}`}>
-          <p className="text-xs text-gray-800">
+        <div className={`flex-1 min-w-0 ${sinStock ? 'line-through text-slate-500' : ''}`}>
+          <p className="text-xs text-slate-100">
             <span className="font-semibold">{item.cantidadConfirmada ?? item.cantidad}×</span>{' '}
             {item.descripcion}
             {/* Trazabilidad: si se confirma menos de lo pedido, se ve acá */}
             {item.cantidadConfirmada != null && item.cantidadConfirmada < item.cantidad && !sinStock && (
-              <span className="ml-1 text-[11px] text-amber-600 font-medium">
+              <span className="ml-1 text-[11px] text-amber-400 font-medium">
                 (se pidieron {item.cantidad})
               </span>
             )}
           </p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-slate-500">
             {item.codigo} {item.medida ? `· ${item.medida}` : ''} · {money(item.precioNeto || item.precioGranel)}
             {item.precioLista > (item.precioNeto || item.precioGranel) && (
               <span className="line-through ml-1">{money(item.precioLista)}</span>
@@ -141,17 +141,17 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
 
         <div className="shrink-0 flex items-center gap-1.5">
           {sinStock && (
-            <span className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded px-2 py-0.5">
+            <span className="text-[11px] font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded px-2 py-0.5">
               Sin stock
             </span>
           )}
           {esReemplazo && (
-            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-0.5">
+            <span className="text-[11px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5">
               Reemplazo
             </span>
           )}
           {confirmado && (
-            <span className="text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
+            <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5">
               ✓ Hay stock
             </span>
           )}
@@ -161,14 +161,14 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
               <button
                 onClick={confirmar}
                 disabled={guardando}
-                className="text-[11px] font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 rounded px-2 py-1 transition"
+                className="text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded px-2 py-1 transition"
               >
                 Hay stock
               </button>
               <button
                 onClick={() => setBuscando(true)}
                 disabled={guardando}
-                className="text-[11px] font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 disabled:opacity-50 rounded px-2 py-1 transition"
+                className="text-[11px] font-semibold text-amber-200 bg-amber-500/20 hover:bg-amber-500/30 disabled:opacity-50 rounded px-2 py-1 transition"
               >
                 Sin stock
               </button>
@@ -176,15 +176,15 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
           )}
 
           {pendiente && (!puedeRevisar || bloqueado) && (
-            <span className="text-[11px] text-gray-400">Sin revisar</span>
+            <span className="text-[11px] text-slate-500">Sin revisar</span>
           )}
         </div>
       </div>
 
       {item.nota && !esReemplazo && (
-        <p className="text-[11px] text-gray-400 mt-0.5">{item.nota}</p>
+        <p className="text-[11px] text-slate-500 mt-0.5">{item.nota}</p>
       )}
-      {error && <p className="text-[11px] text-red-600 mt-1">{error}</p>}
+      {error && <p className="text-[11px] text-rose-400 mt-1">{error}</p>}
 
       {buscando && (
         <BuscarReemplazo
@@ -210,11 +210,11 @@ function EnviarCliente({ pedido, onEnviado }) {
   }
 
   return (
-    <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 space-y-3">
       <p className="text-sm font-semibold text-green-800">✓ Aprobado internamente — listo para enviar al cliente</p>
       <div className="flex flex-wrap gap-2">
         <a href={linkWhatsApp(pedido)} target="_blank" rel="noreferrer" onClick={marcar}
-          className="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
+          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
           Enviar por WhatsApp
         </a>
         <a href={linkGmail(pedido)} target="_blank" rel="noreferrer" onClick={marcar}
@@ -226,12 +226,12 @@ function EnviarCliente({ pedido, onEnviado }) {
           Enviar por Outlook
         </a>
         <button onClick={() => { copiar(); marcar() }}
-          className="border border-gray-300 hover:bg-gray-100 text-gray-600 text-xs font-semibold px-3 py-2 rounded-lg transition">
+          className="border border-white/10 hover:bg-white/10 text-slate-300 text-xs font-semibold px-3 py-2 rounded-lg transition">
           {copiado ? '✓ Copiado' : 'Copiar link'}
         </button>
       </div>
       {pedido.fechaEnvioCliente && (
-        <p className="text-xs text-green-600">Enviado el {new Date(pedido.fechaEnvioCliente).toLocaleString('es-AR')}</p>
+        <p className="text-xs text-emerald-400">Enviado el {new Date(pedido.fechaEnvioCliente).toLocaleString('es-AR')}</p>
       )}
     </div>
   )
@@ -255,25 +255,25 @@ function Historial({ pedidoId }) {
     obtenerLog(pedidoId).then(setEventos).catch(e => setError(e.message))
   }, [pedidoId])
 
-  if (error) return <p className="text-xs text-red-600">{error}</p>
-  if (!eventos) return <p className="text-xs text-gray-400">Cargando historial...</p>
+  if (error) return <p className="text-xs text-rose-400">{error}</p>
+  if (!eventos) return <p className="text-xs text-slate-500">Cargando historial...</p>
   if (!eventos.length) {
     return (
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-slate-500">
         Sin movimientos registrados. El historial se completa con lo que pase de ahora en adelante.
       </p>
     )
   }
 
   return (
-    <ol className="space-y-2 border-l-2 border-gray-200 pl-3">
+    <ol className="space-y-2 border-l-2 border-white/10 pl-3">
       {eventos.map(ev => (
         <li key={ev.id} className="text-xs relative">
           <span className="absolute -left-[19px] bg-white text-[10px]">
             {ICONO_EVENTO[ev.evento] || '•'}
           </span>
-          <p className="text-gray-700">{ev.detalle || ev.evento}</p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-slate-200">{ev.detalle || ev.evento}</p>
+          <p className="text-[11px] text-slate-500">
             {new Date(ev.fecha.replace(' ', 'T')).toLocaleString('es-AR')}
             {ev.usuarioNombre && ` · ${ev.usuarioNombre}`}
             {ev.estadoAnterior && ev.estadoNuevo && ` · ${ev.estadoAnterior} → ${ev.estadoNuevo}`}
@@ -303,10 +303,10 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+    <div className="bg-white/5 rounded-xl shadow-sm border overflow-hidden">
       <div className="px-4 py-3 border-b flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap">
+          <p className="font-semibold text-slate-100 flex items-center gap-2 flex-wrap">
             {pedido.clienteNombre}
             {pedido.tipoOrigen === 'directo' && (
               <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
@@ -314,15 +314,15 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
               </span>
             )}
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-slate-500">
             {new Date(pedido.fechaCreacion).toLocaleString('es-AR')} · {money(pedido.total)}
             {' · '}Pago {LABEL_CONDICION_PAGO[pedido.condicionPago] || 'Contado'}
           </p>
           {pedido.totales?.ahorro > 0 && (
-            <p className="text-[11px] text-green-600">
+            <p className="text-[11px] text-emerald-400">
               Lista {money(pedido.totales.subtotalLista)} · descuentos {pedido.totales.descuentoEfectivo}%
               {pedido.totales.itemsSinStock > 0 && (
-                <span className="text-amber-600">
+                <span className="text-amber-400">
                   {' · '}{pedido.totales.itemsSinStock} sin stock (no suma)
                 </span>
               )}
@@ -333,14 +333,14 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
         <div className="flex items-center gap-2 shrink-0">
           <Link
             to={`/nota-deposito/${pedido.id}`}
-            className="text-xs font-semibold text-gray-600 border border-gray-300 hover:bg-gray-50 rounded px-2.5 py-1 transition"
+            className="text-xs font-semibold text-slate-300 border border-white/10 hover:bg-white/5 rounded px-2.5 py-1 transition"
             title="Comprobante para el galpón, sin precios"
           >
             Nota de depósito
           </Link>
           <button
             onClick={() => setVerHistorial(v => !v)}
-            className="text-xs font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 rounded px-2.5 py-1 transition"
+            className="text-xs font-semibold text-slate-400 hover:text-slate-200 border border-white/10 rounded px-2.5 py-1 transition"
           >
             {verHistorial ? 'Ocultar' : 'Historial'}
           </button>
@@ -348,12 +348,12 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
       </div>
 
       {verHistorial && (
-        <div className="px-4 py-3 bg-gray-50 border-b">
+        <div className="px-4 py-3 bg-white/5 border-b">
           <Historial pedidoId={pedido.id} />
         </div>
       )}
 
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-white/5">
         {pedido.subpedidos.map((sub) => {
           // El depósito revisa su propio stock; el admin puede hacerlo por cualquiera.
           const esMiDeposito = !sub.responsableId || sub.responsableId === usuarioId
@@ -364,18 +364,18 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
             <div key={sub.familia} className="px-4 py-3">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     {sub.depositoNombre || `${FAMILIAS_LABEL[sub.familia] || sub.familia} · Depósito`}
                   </p>
                   {pendientes > 0 && !sub.aprobado && (
-                    <p className="text-[11px] text-amber-600 mt-0.5">
+                    <p className="text-[11px] text-amber-400 mt-0.5">
                       {pendientes} producto{pendientes === 1 ? '' : 's'} sin revisar
                     </p>
                   )}
                 </div>
 
                 {sub.aprobado ? (
-                  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5">
+                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5">
                     ✓ Aprobado
                   </span>
                 ) : puedeRevisar ? (
@@ -388,17 +388,17 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
                     {aprobando === sub.familia ? 'Aprobando...' : 'Aprobar depósito'}
                   </button>
                 ) : (
-                  <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                  <span className="text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-0.5">
                     Esperando al depósito
                   </span>
                 )}
               </div>
 
               {errorFamilia[sub.familia] && (
-                <p className="text-[11px] text-red-600 mb-1">{errorFamilia[sub.familia]}</p>
+                <p className="text-[11px] text-rose-400 mb-1">{errorFamilia[sub.familia]}</p>
               )}
 
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-white/5">
                 {sub.items.map((it) => (
                   <FilaItem
                     key={it.id}
@@ -444,20 +444,20 @@ export default function Aprobaciones() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Aprobaciones</h2>
-        <p className="text-sm text-gray-400 mt-0.5">Pedidos separados por depósito, pendientes de aprobar stock o de confirmar con el cliente</p>
+        <h2 className="text-2xl font-bold text-slate-100">Aprobaciones</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Pedidos separados por depósito, pendientes de aprobar stock o de confirmar con el cliente</p>
       </div>
 
       {state?.creado && (
-        <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+        <p className="text-sm text-sky-400 bg-sky-500/10 border border-blue-200 rounded-lg px-3 py-2">
           Pedido enviado a aprobación correctamente.
         </p>
       )}
 
       {cargando ? (
-        <p className="text-sm text-gray-400">Cargando...</p>
+        <p className="text-sm text-slate-500">Cargando...</p>
       ) : pendientes.length === 0 ? (
-        <p className="text-sm text-gray-400 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
           No hay pedidos pendientes de aprobación.
         </p>
       ) : (

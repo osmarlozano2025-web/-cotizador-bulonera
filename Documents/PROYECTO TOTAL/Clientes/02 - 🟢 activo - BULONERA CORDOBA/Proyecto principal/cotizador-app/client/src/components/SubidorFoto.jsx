@@ -57,11 +57,11 @@ export default function SubidorFoto({ onAgregar }) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full border-2 border-dashed border-amber-200 rounded-xl p-8 text-center bg-amber-50 hover:bg-amber-100 transition"
+          className="w-full border-2 border-dashed border-amber-500/30 rounded-xl p-8 text-center bg-amber-500/10 hover:bg-amber-100 transition"
         >
           <div className="text-4xl mb-3">📷</div>
-          <p className="font-semibold text-amber-700 text-sm">Subir foto del pedido</p>
-          <p className="text-xs text-amber-600 mt-1">Manuscrito o foto, se interpreta automáticamente</p>
+          <p className="font-semibold text-amber-400 text-sm">Subir foto del pedido</p>
+          <p className="text-xs text-amber-400 mt-1">Manuscrito o foto, se interpreta automáticamente</p>
         </button>
       )}
 
@@ -79,7 +79,7 @@ export default function SubidorFoto({ onAgregar }) {
           <div className="flex items-start gap-3">
             <img src={preview} alt="Vista previa" className="w-32 h-32 object-cover rounded-lg border" />
             <div className="flex-1 space-y-2">
-              <p className="text-sm text-gray-600">{archivo.name}</p>
+              <p className="text-sm text-slate-300">{archivo.name}</p>
               <div className="flex gap-2">
                 <button
                   onClick={interpretar}
@@ -90,7 +90,7 @@ export default function SubidorFoto({ onAgregar }) {
                 </button>
                 <button
                   onClick={() => inputRef.current?.click()}
-                  className="text-sm text-gray-500 hover:text-gray-700 px-3 py-2"
+                  className="text-sm text-slate-400 hover:text-slate-200 px-3 py-2"
                 >
                   Cambiar foto
                 </button>
@@ -99,11 +99,11 @@ export default function SubidorFoto({ onAgregar }) {
           </div>
 
           {error && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-xs text-rose-400 bg-rose-500/10 border border-red-100 rounded-lg px-3 py-2">{error}</p>
           )}
 
           {resultados.length > 0 && (
-            <ul className="border rounded-lg overflow-hidden divide-y divide-gray-100">
+            <ul className="border rounded-lg overflow-hidden divide-y divide-white/5">
               {resultados.map((item, idx) => (
                 <li key={idx} className="px-4 py-3">
                   <p className="text-sm font-medium">
@@ -113,7 +113,7 @@ export default function SubidorFoto({ onAgregar }) {
                     <button
                       onClick={() => agregar(item, idx, item.matchExacto)}
                       disabled={agregados.has(idx)}
-                      className="text-xs mt-1 text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1 disabled:opacity-50"
+                      className="text-xs mt-1 text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1 disabled:opacity-50"
                     >
                       {agregados.has(idx) ? '✓ Agregado' : `+ Agregar match: ${item.matchExacto.descripcion}`}
                     </button>
@@ -124,14 +124,14 @@ export default function SubidorFoto({ onAgregar }) {
                           key={i}
                           onClick={() => agregar(item, idx, s)}
                           disabled={agregados.has(idx)}
-                          className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100 disabled:opacity-50"
+                          className="text-xs text-sky-400 bg-sky-500/10 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100 disabled:opacity-50"
                         >
                           {agregados.has(idx) ? '✓' : '+'} {s.descripcion}
                         </button>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-gray-400 mt-1">Sin coincidencias en el catálogo</p>
+                    <p className="text-xs text-slate-500 mt-1">Sin coincidencias en el catálogo</p>
                   )}
                 </li>
               ))}

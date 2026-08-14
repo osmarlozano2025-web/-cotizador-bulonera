@@ -80,7 +80,7 @@ export default function Proforma() {
   const sinStock = (pedido.subpedidos || []).flatMap(s => s.items).filter(i => i.estado === 'sin_stock')
 
   return (
-    <div className="min-h-screen bg-gray-100 print:bg-white">
+    <div className="documento min-h-screen bg-gray-100 print:bg-white">
       <style>{`
         @media print {
           @page { size: A4; margin: 14mm; }

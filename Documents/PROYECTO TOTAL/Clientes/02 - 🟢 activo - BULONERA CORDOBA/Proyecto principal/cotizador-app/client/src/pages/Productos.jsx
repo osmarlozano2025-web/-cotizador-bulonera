@@ -27,8 +27,8 @@ export default function Productos() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Productos</h2>
-        <p className="text-sm text-gray-400 mt-0.5">Catálogo del servidor (mismo origen que usa la interpretación de fotos y los pedidos)</p>
+        <h2 className="text-2xl font-bold text-slate-100">Productos</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Catálogo del servidor (mismo origen que usa la interpretación de fotos y los pedidos)</p>
       </div>
 
       <div className="flex gap-2">
@@ -53,35 +53,35 @@ export default function Productos() {
       </div>
 
       {query.length < 2 ? (
-        <p className="text-sm text-gray-400 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
           Escribí al menos 2 letras para buscar en el catálogo.
         </p>
       ) : buscando ? (
-        <p className="text-sm text-gray-400 px-1">Buscando...</p>
+        <p className="text-sm text-slate-500 px-1">Buscando...</p>
       ) : resultados.length === 0 ? (
-        <p className="text-sm text-gray-400 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
           Sin resultados para "{query}".
         </p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="bg-white/5 rounded-xl shadow-sm border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-white/5 border-b">
               <tr>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Código</th>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Descripción</th>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Medida</th>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Familia</th>
-                <th className="text-right px-4 py-2 text-gray-500 text-xs font-semibold">Precio granel</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Código</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Descripción</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Medida</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Familia</th>
+                <th className="text-right px-4 py-2 text-slate-400 text-xs font-semibold">Precio granel</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-white/5">
               {resultados.map((p, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 text-gray-400 text-xs">{p.codigo || '—'}</td>
+                <tr key={i} className="hover:bg-white/5">
+                  <td className="px-4 py-2.5 text-slate-500 text-xs">{p.codigo || '—'}</td>
                   <td className="px-4 py-2.5">{p.descripcion}</td>
-                  <td className="px-4 py-2.5 text-gray-400">{p.medida || '—'}</td>
-                  <td className="px-4 py-2.5 capitalize text-blue-600">{p.familia}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-green-700">
+                  <td className="px-4 py-2.5 text-slate-500">{p.medida || '—'}</td>
+                  <td className="px-4 py-2.5 capitalize text-sky-400">{p.familia}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-emerald-400">
                     {p.precioGranel > 0 ? `$${p.precioGranel.toFixed(2)}` : '—'}
                   </td>
                 </tr>

@@ -25,7 +25,7 @@ export default function NotaDeposito() {
   const fecha = new Date(pedido.fechaCreacion).toLocaleDateString('es-AR')
 
   return (
-    <div className="min-h-screen bg-gray-100 print:bg-white">
+    <div className="documento min-h-screen bg-gray-100 print:bg-white">
       <style>{`
         @media print {
           @page { size: A4; margin: 12mm; }

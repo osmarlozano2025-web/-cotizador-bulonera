@@ -58,7 +58,7 @@ export default function NuevoPedido() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Nuevo pedido</h2>
+          <h2 className="text-2xl font-bold text-slate-100">Nuevo pedido</h2>
           <p className="text-sm text-slate-500">
             Se divide solo por familia, un depósito por cada una.
           </p>
@@ -100,7 +100,7 @@ export default function NuevoPedido() {
           </div>
           <SelectorCliente value={cliente} onChange={setCliente} />
           {faltaCliente ? (
-            <p className="text-xs text-amber-700 mt-1.5">
+            <p className="text-xs text-amber-400 mt-1.5">
               Elegí un cliente para poder enviar el pedido a aprobación.
             </p>
           ) : (
@@ -112,7 +112,7 @@ export default function NuevoPedido() {
           )}
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-5 pt-4 border-t border-slate-200/80">
+        <div className="grid sm:grid-cols-2 gap-5 pt-4 border-t border-white/10">
           <div>
             <label className="etiqueta block mb-1.5">Condición de pago</label>
             <select
@@ -128,14 +128,14 @@ export default function NuevoPedido() {
 
           <div>
             <label className="etiqueta block mb-1.5">Tipo de pedido</label>
-            <label className="flex items-start gap-2.5 cursor-pointer border border-slate-300 rounded-xl px-3 py-2 hover:bg-slate-50 transition">
+            <label className="flex items-start gap-2.5 cursor-pointer border border-white/10 rounded-xl px-3 py-2 hover:bg-white/5 transition">
               <input
                 type="checkbox"
                 checked={pedidoDirecto}
                 onChange={e => setPedidoDirecto(e.target.checked)}
                 className="mt-0.5 accent-[var(--cb-600)]"
               />
-              <span className="text-sm text-slate-700">
+              <span className="text-sm text-slate-200">
                 Pedido directo
                 <span className="block text-[11px] text-slate-400">
                   El cliente ya lo confirmó: no se le manda link.
@@ -152,20 +152,20 @@ export default function NuevoPedido() {
           <div className="grid sm:grid-cols-2 gap-4">
             <button
               onClick={() => setModo('foto')}
-              className="flex flex-col items-center gap-2 p-7 border-2 border-dashed border-slate-200 rounded-2xl hover:border-amber-400 hover:bg-amber-50/50 transition group"
+              className="flex flex-col items-center gap-2 p-7 border-2 border-dashed border-white/10 rounded-2xl hover:border-amber-400 hover:bg-amber-500/10/50 transition group"
             >
               <span className="text-3xl">📷</span>
-              <span className="font-semibold text-slate-700 group-hover:text-amber-700 text-sm">
+              <span className="font-semibold text-slate-200 group-hover:text-amber-400 text-sm">
                 Foto del pedido
               </span>
               <span className="text-xs text-slate-400">Lo lee la IA</span>
             </button>
             <button
               onClick={() => setModo('manual')}
-              className="flex flex-col items-center gap-2 p-7 border-2 border-dashed border-slate-200 rounded-2xl hover:border-[var(--cb-500)] hover:bg-sky-50/50 transition group"
+              className="flex flex-col items-center gap-2 p-7 border-2 border-dashed border-white/10 rounded-2xl hover:border-[var(--cb-500)] hover:bg-sky-50/50 transition group"
             >
               <span className="text-3xl">✏️</span>
-              <span className="font-semibold text-slate-700 group-hover:text-[var(--cb-700)] text-sm">
+              <span className="font-semibold text-slate-200 group-hover:text-[var(--cb-700)] text-sm">
                 Carga manual
               </span>
               <span className="text-xs text-slate-400">Buscás producto por producto</span>
@@ -182,7 +182,7 @@ export default function NuevoPedido() {
             </span>
             <button
               onClick={() => setModo(null)}
-              className="text-xs text-slate-400 hover:text-slate-600 transition"
+              className="text-xs text-slate-400 hover:text-slate-300 transition"
             >
               ← Cambiar modo
             </button>

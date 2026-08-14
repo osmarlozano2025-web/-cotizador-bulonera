@@ -32,13 +32,7 @@ export default function Login() {
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{
-        background:
-          'radial-gradient(1100px 600px at 15% -10%, var(--cb-700) 0%, transparent 55%), var(--cb-900)',
-      }}
-    >
+    <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-6 justify-center">
           <div
@@ -53,10 +47,7 @@ export default function Login() {
           </div>
         </div>
 
-        <form
-          onSubmit={submit}
-          className="bg-white rounded-2xl shadow-2xl p-7 space-y-4 border border-white/10"
-        >
+        <form onSubmit={submit} className="tarjeta p-7 space-y-4">
           <div>
             <label className="etiqueta block mb-1.5">Usuario</label>
             <input
@@ -80,7 +71,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+            <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2">
               {error}
             </p>
           )}

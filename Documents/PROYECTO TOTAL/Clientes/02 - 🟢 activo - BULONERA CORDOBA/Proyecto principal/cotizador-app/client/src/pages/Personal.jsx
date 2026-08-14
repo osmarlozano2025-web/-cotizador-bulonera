@@ -95,41 +95,41 @@ export default function Personal() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Personal</h2>
-          <p className="text-sm text-gray-400 mt-0.5">{lista.length} personas · roles y permisos por sección</p>
+          <h2 className="text-2xl font-bold text-slate-100">Personal</h2>
+          <p className="text-sm text-slate-500 mt-0.5">{lista.length} personas · roles y permisos por sección</p>
         </div>
         <button onClick={nuevo} className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg text-sm transition">
           + Nueva persona
         </button>
       </div>
 
-      {error && !mostrarForm && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+      {error && !mostrarForm && <p className="text-sm text-rose-400 bg-rose-500/10 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
       {mostrarForm && (
-        <form onSubmit={guardar} className="bg-white rounded-xl shadow-sm border p-5 space-y-4">
-          <p className="font-semibold text-gray-700 text-sm">{editandoId ? 'Editar persona' : 'Nueva persona'}</p>
+        <form onSubmit={guardar} className="bg-white/5 rounded-xl shadow-sm border p-5 space-y-4">
+          <p className="font-semibold text-slate-200 text-sm">{editandoId ? 'Editar persona' : 'Nueva persona'}</p>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-500">Nombre</label>
+              <label className="text-xs font-medium text-slate-400">Nombre</label>
               <input value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} required
                 className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500">Usuario</label>
+              <label className="text-xs font-medium text-slate-400">Usuario</label>
               <input value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))} required
                 className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500">
-                Contraseña {editandoId && <span className="text-gray-400">(dejar en blanco para no cambiarla)</span>}
+              <label className="text-xs font-medium text-slate-400">
+                Contraseña {editandoId && <span className="text-slate-500">(dejar en blanco para no cambiarla)</span>}
               </label>
               <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                 required={!editandoId}
                 className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500">Rol</label>
+              <label className="text-xs font-medium text-slate-400">Rol</label>
               <select value={form.rol} onChange={e => cambiarRol(e.target.value)}
                 className="w-full mt-1 border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="Administrador">Administrador</option>
@@ -140,10 +140,10 @@ export default function Personal() {
           </div>
 
           <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">Secciones visibles</p>
+            <p className="text-xs font-medium text-slate-400 mb-2">Secciones visibles</p>
             <div className="grid grid-cols-3 gap-2">
               {SECCIONES.map(s => (
-                <label key={s.key} className="flex items-center gap-2 text-sm text-gray-700">
+                <label key={s.key} className="flex items-center gap-2 text-sm text-slate-200">
                   <input type="checkbox" checked={form.permisos.secciones.includes(s.key)} onChange={() => toggleSeccion(s.key)} />
                   {s.label}
                 </label>
@@ -152,23 +152,23 @@ export default function Personal() {
           </div>
 
           <div className="flex gap-6">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-slate-200">
               <input type="checkbox" checked={form.permisos.puedeAprobarFamilias} onChange={() => toggleFlag('puedeAprobarFamilias')} />
               Puede aprobar stock por depósito
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-slate-200">
               <input type="checkbox" checked={form.permisos.puedeEnviarCliente} onChange={() => toggleFlag('puedeEnviarCliente')} />
               Puede enviar cotización al cliente
             </label>
           </div>
 
-          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+          {error && <p className="text-xs text-rose-400 bg-rose-500/10 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
           <div className="flex gap-2">
             <button type="submit" className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg text-sm transition">
               {editandoId ? 'Guardar cambios' : 'Crear persona'}
             </button>
-            <button type="button" onClick={() => setMostrarForm(false)} className="border hover:bg-gray-50 text-gray-600 px-4 py-2 rounded-lg text-sm transition">
+            <button type="button" onClick={() => setMostrarForm(false)} className="border hover:bg-white/5 text-slate-300 px-4 py-2 rounded-lg text-sm transition">
               Cancelar
             </button>
           </div>
@@ -176,31 +176,31 @@ export default function Personal() {
       )}
 
       {cargando ? (
-        <p className="text-sm text-gray-400">Cargando...</p>
+        <p className="text-sm text-slate-500">Cargando...</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="bg-white/5 rounded-xl shadow-sm border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-white/5 border-b">
               <tr>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Nombre</th>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Usuario</th>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Rol</th>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Secciones</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Nombre</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Usuario</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Rol</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Secciones</th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-white/5">
               {lista.map(p => (
-                <tr key={p.id} className="hover:bg-gray-50">
+                <tr key={p.id} className="hover:bg-white/5">
                   <td className="px-4 py-2.5 font-medium">{p.nombre}</td>
-                  <td className="px-4 py-2.5 text-gray-500">{p.usuario}</td>
+                  <td className="px-4 py-2.5 text-slate-400">{p.usuario}</td>
                   <td className="px-4 py-2.5">
-                    <span className="text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded px-2 py-0.5">{p.rol}</span>
+                    <span className="text-xs font-semibold bg-sky-500/10 text-sky-400 border border-blue-200 rounded px-2 py-0.5">{p.rol}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-gray-400">{p.permisos.secciones.length} secciones</td>
+                  <td className="px-4 py-2.5 text-xs text-slate-500">{p.permisos.secciones.length} secciones</td>
                   <td className="px-4 py-2.5 text-right">
-                    <button onClick={() => editar(p)} className="text-xs text-blue-600 hover:text-blue-800 font-medium mr-3">Editar</button>
-                    <button onClick={() => eliminar(p.id)} className="text-xs text-red-400 hover:text-red-600 font-medium">Eliminar</button>
+                    <button onClick={() => editar(p)} className="text-xs text-sky-400 hover:text-sky-300 font-medium mr-3">Editar</button>
+                    <button onClick={() => eliminar(p.id)} className="text-xs text-red-400 hover:text-rose-400 font-medium">Eliminar</button>
                   </td>
                 </tr>
               ))}

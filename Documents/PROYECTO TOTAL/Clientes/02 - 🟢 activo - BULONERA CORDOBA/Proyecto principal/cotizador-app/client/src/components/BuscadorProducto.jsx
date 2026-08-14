@@ -56,17 +56,17 @@ export default function BuscadorProducto({ onAgregar }) {
       )}
 
       {resultados.length > 0 && (
-        <ul className="border rounded-lg overflow-hidden divide-y divide-gray-100 max-h-72 overflow-y-auto shadow-sm">
+        <ul className="border rounded-lg overflow-hidden divide-y divide-white/5 max-h-72 overflow-y-auto shadow-sm">
           {resultados.map((p, i) => (
             <li key={i}>
               <button
                 type="button"
                 onClick={() => agregar(p)}
-                className="w-full text-left px-4 py-3 hover:bg-blue-50 transition flex items-center justify-between group"
+                className="w-full text-left px-4 py-3 hover:bg-sky-500/10 transition flex items-center justify-between group"
               >
                 <div>
                   <p className="font-medium text-sm">{p.descripcion}</p>
-                  <div className="text-xs text-gray-400 mt-0.5 flex gap-3">
+                  <div className="text-xs text-slate-500 mt-0.5 flex gap-3">
                     {p.codigo && <span>Cód: {p.codigo}</span>}
                     {p.medida && <span>Med: {p.medida}</span>}
                     <span className="capitalize text-blue-500">{p.familia}</span>
@@ -74,7 +74,7 @@ export default function BuscadorProducto({ onAgregar }) {
                 </div>
                 <div className="text-right ml-4 shrink-0">
                   {p.precioGranel > 0 && (
-                    <p className="text-sm font-semibold text-green-700">${p.precioGranel.toFixed(2)}</p>
+                    <p className="text-sm font-semibold text-emerald-400">${p.precioGranel.toFixed(2)}</p>
                   )}
                   <p className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition">+ Agregar</p>
                 </div>
@@ -85,7 +85,7 @@ export default function BuscadorProducto({ onAgregar }) {
       )}
 
       {!buscando && query.length >= 2 && resultados.length === 0 && (
-        <p className="text-xs text-gray-400 px-1">Sin resultados para "{query}"</p>
+        <p className="text-xs text-slate-500 px-1">Sin resultados para "{query}"</p>
       )}
     </div>
   )

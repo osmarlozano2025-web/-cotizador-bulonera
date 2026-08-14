@@ -22,8 +22,8 @@ export default function Cotizaciones() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Cotizaciones</h2>
-        <p className="text-sm text-gray-400 mt-0.5">Pedidos aprobados internamente y enviados al cliente</p>
+        <h2 className="text-2xl font-bold text-slate-100">Cotizaciones</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Pedidos aprobados internamente y enviados al cliente</p>
       </div>
 
       <div className="flex gap-2 border-b">
@@ -32,7 +32,7 @@ export default function Cotizaciones() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${
-              tab === t.key ? 'border-blue-700 text-blue-700' : 'border-transparent text-gray-400 hover:text-gray-600'
+              tab === t.key ? 'border-blue-700 text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
             {t.label} ({pedidos.filter(p => t.estados.includes(p.estado)).length})
@@ -41,43 +41,43 @@ export default function Cotizaciones() {
       </div>
 
       {cargando ? (
-        <p className="text-sm text-gray-400">Cargando...</p>
+        <p className="text-sm text-slate-500">Cargando...</p>
       ) : filtrados.length === 0 ? (
-        <p className="text-sm text-gray-400 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
           {tab === 'espera'
             ? 'No hay cotizaciones esperando confirmación del cliente.'
             : 'Todavía no hay cotizaciones confirmadas por el cliente.'}
         </p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <div className="bg-white/5 rounded-xl shadow-sm border overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-white/5 border-b">
               <tr>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Fecha</th>
-                <th className="text-left px-4 py-2 text-gray-500 text-xs font-semibold">Cliente</th>
-                <th className="text-right px-4 py-2 text-gray-500 text-xs font-semibold">Ítems</th>
-                <th className="text-right px-4 py-2 text-gray-500 text-xs font-semibold">Descuento</th>
-                <th className="text-right px-4 py-2 text-gray-500 text-xs font-semibold">Total</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Fecha</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Cliente</th>
+                <th className="text-right px-4 py-2 text-slate-400 text-xs font-semibold">Ítems</th>
+                <th className="text-right px-4 py-2 text-slate-400 text-xs font-semibold">Descuento</th>
+                <th className="text-right px-4 py-2 text-slate-400 text-xs font-semibold">Total</th>
                 {tab === 'aprobadas' && <th className="px-4 py-2"></th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-white/5">
               {filtrados.map(p => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 text-gray-600">
+                <tr key={p.id} className="hover:bg-white/5">
+                  <td className="px-4 py-2.5 text-slate-300">
                     {new Date(p.fechaCreacion).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </td>
                   <td className="px-4 py-2.5 font-medium">{p.clienteNombre || 'Sin cliente'}</td>
-                  <td className="px-4 py-2.5 text-right text-gray-500">
+                  <td className="px-4 py-2.5 text-right text-slate-400">
                     {p.subpedidos.reduce((s, sub) => s + sub.items.length, 0)}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-gray-500">{p.descuento ? `${p.descuento}%` : '—'}</td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-green-700">
+                  <td className="px-4 py-2.5 text-right text-slate-400">{p.descuento ? `${p.descuento}%` : '—'}</td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-emerald-400">
                     ${p.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                   </td>
                   {tab === 'aprobadas' && (
                     <td className="px-4 py-2.5 text-right">
-                      <Link to={`/proforma/${p.token}`} className="text-xs text-blue-600 hover:underline font-medium">
+                      <Link to={`/proforma/${p.token}`} className="text-xs text-sky-400 hover:underline font-medium">
                         Ver proforma
                       </Link>
                     </td>

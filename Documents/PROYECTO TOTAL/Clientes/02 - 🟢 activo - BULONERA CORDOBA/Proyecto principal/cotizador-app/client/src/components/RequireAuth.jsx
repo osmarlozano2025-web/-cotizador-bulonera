@@ -6,7 +6,7 @@ export default function RequireAuth({ seccion, children }) {
   const { user, listo, tieneSeccion } = useAuth()
   const location = useLocation()
 
-  if (!listo) return <div className="min-h-screen flex items-center justify-center text-gray-400">Cargando...</div>
+  if (!listo) return <div className="min-h-screen flex items-center justify-center text-slate-500">Cargando...</div>
 
   if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />
 
@@ -18,7 +18,7 @@ export default function RequireAuth({ seccion, children }) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="bg-white border rounded-xl p-8 text-center max-w-sm">
-          <p className="text-gray-700 font-medium">Todavía no tenés ninguna sección habilitada. Pedile a un administrador que te asigne permisos.</p>
+          <p className="text-slate-200 font-medium">Todavía no tenés ninguna sección habilitada. Pedile a un administrador que te asigne permisos.</p>
         </div>
       </div>
     )

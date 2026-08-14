@@ -28,20 +28,20 @@ function CampoClave({ titulo, descripcion, mascara, configurada, onGuardar }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-5 space-y-3">
+    <div className="bg-white/5 rounded-xl shadow-sm border p-5 space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-semibold text-gray-800 text-sm">{titulo}</p>
-          <p className="text-xs text-gray-400">{descripcion}</p>
+          <p className="font-semibold text-slate-100 text-sm">{titulo}</p>
+          <p className="text-xs text-slate-500">{descripcion}</p>
         </div>
         <span className={`text-xs font-semibold rounded px-2 py-0.5 border ${
-          configurada ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-400 border-gray-200'
+          configurada ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-white/5 text-slate-500 border-white/10'
         }`}>
           {configurada ? '✓ Configurada' : 'Sin configurar'}
         </span>
       </div>
 
-      {configurada && <p className="text-xs text-gray-400">Actual: <span className="font-mono">{mascara}</span></p>}
+      {configurada && <p className="text-xs text-slate-500">Actual: <span className="font-mono">{mascara}</span></p>}
 
       <div className="flex gap-2">
         <input
@@ -59,7 +59,7 @@ function CampoClave({ titulo, descripcion, mascara, configurada, onGuardar }) {
           {guardando ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
-      {ok && <p className="text-xs text-green-600">✓ Clave actualizada</p>}
+      {ok && <p className="text-xs text-emerald-400">✓ Clave actualizada</p>}
     </div>
   )
 }
@@ -82,11 +82,11 @@ export default function Integraciones() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Integraciones</h2>
-        <p className="text-sm text-gray-400 mt-0.5">Claves de API usadas por el sistema</p>
+        <h2 className="text-2xl font-bold text-slate-100">Integraciones</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Claves de API usadas por el sistema</p>
       </div>
 
-      {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
+      {error && <p className="text-sm text-rose-400 bg-rose-500/10 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
       {datos && (
         <div className="space-y-4">

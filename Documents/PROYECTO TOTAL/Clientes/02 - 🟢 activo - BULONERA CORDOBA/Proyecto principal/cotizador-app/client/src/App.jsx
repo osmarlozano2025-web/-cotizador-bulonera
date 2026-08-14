@@ -18,7 +18,7 @@ import Login from './pages/Login'
 
 function Layout({ children }) {
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex">
       <Sidebar />
       <main className="flex-1 min-w-0 px-6 py-6">
         <div className="max-w-6xl mx-auto">{children}</div>
