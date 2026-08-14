@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Módulo Configuraciones V002</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f3f4f6;
+        }
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 240px;
+            background: #0f3460;
+            color: #93c5fd;
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 5px;
+        }
+        .sidebar-subtitle {
+            font-size: 12px;
+            color: #60a5fa;
+            margin-bottom: 30px;
+        }
+        .menu-section {
+            margin-bottom: 30px;
+        }
+        .menu-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #60a5fa;
+            margin-bottom: 10px;
+        }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #93c5fd;
+        }
+        .menu-item.active {
+            background: #1e40af;
+            color: white;
+            border-right: 3px solid #fbbf24;
+            font-weight: 500;
+        }
+        .user-box {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid #1e3a5f;
+            font-size: 12px;
+        }
+        .user-name {
+            color: white;
+            font-weight: 600;
+        }
+        .user-role {
+            color: #60a5fa;
+            font-size: 11px;
+        }
+        .main {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+        .success-msg {
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #166534;
+            font-weight: 500;
+        }
+        .section {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 30px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .section-header {
+            background: linear-gradient(to right, #f0f9ff, transparent);
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 5px;
+        }
+        .section-desc {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .section-content {
+            padding: 20px;
+        }
+        .item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            transition: background 0.2s;
+        }
+        .item:hover {
+            background: #f9fafb;
+        }
+        .item.editing {
+            background: #f0f9ff;
+            border-color: #0ea5e9;
+        }
+        .item-left {
+            flex: 1;
+        }
+        .item-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #111827;
+            text-transform: capitalize;
+            margin-bottom: 5px;
+        }
+        .item-value {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        .value-badge {
+            display: inline-block;
+            background: #f3f4f6;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .item-inputs {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .input-wrapper {
+            flex: 1;
+        }
+        .input-label {
+            display: block;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+        .item-right {
+            display: flex;
+            gap: 10px;
+            margin-left: 20px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-edit:hover {
+            background: #2563eb;
+        }
+        .btn-save {
+            background: #10b981;
+            color: white;
+        }
+        .btn-save:hover {
+            background: #059669;
+        }
+        .btn-cancel {
+            background: #d1d5db;
+            color: #111827;
+        }
+        .btn-cancel:hover {
+            background: #9ca3af;
+        }
+        .info-box {
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #92400e;
+            line-height: 1.5;
+        }
+        .info-box strong {
+            font-weight: 600;
+        }
+        .stat-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ea580c;
+            margin: 10px 0;
+        }
+        .stat-desc {
+            font-size: 12px;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-title">Córdoba Bulones</div>
+            <div class="sidebar-subtitle">Panel interno</div>
+
+            <div class="menu-section">
+                <div class="menu-label">Comerciales</div>
+                <div class="menu-item">🧾 Nuevo Pedido</div>
+                <div class="menu-item">✅ Aprobaciones</div>
+                <div class="menu-item">📄 Cotizaciones</div>
+            </div>
+
+            <div class="menu-section">
+                <div class="menu-label">Configuraciones</div>
+                <div class="menu-item">👥 Clientes</div>
+                <div class="menu-item">📦 Productos</div>
+                <div class="menu-item">🔌 Integraciones</div>
+                <div class="menu-item">🧑‍💼 Personal</div>
+                <div class="menu-item active">⚙️ Configuraciones</div>
+            </div>
+
+            <div class="user-box">
+                <div class="user-name">admin</div>
+                <div class="user-role">Administrador</div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main">
+            <h1>⚙️ Configuraciones</h1>
+            <p class="subtitle">Gestiona descuentos, tiempos y otras reglas de negocio</p>
+
+            <div id="successMsg"></div>
+
+            <!-- DESCUENTOS POR FAMILIA -->
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-title">📦 Descuentos por Familia</div>
+                    <div class="section-desc">Configura los descuentos aplicables a cada línea de productos</div>
+                </div>
+                <div class="section-content">
+                    <div class="item" data-item="buloneria">
+                        <div class="item-left">
+                            <div class="item-name">buloneria</div>
+                            <div class="item-value"><span class="value-badge">25% + 0%</span></div>
+                        </div>
+                        <div class="item-right">
+                            <button class="btn btn-edit">✏️ Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="item" data-item="tolsen">
+                        <div class="item-left">
+                            <div class="item-name">tolsen</div>
+                            <div class="item-value"><span class="value-badge">55% + 18%</span></div>
+                        </div>
+                        <div class="item-right">
+                            <button class="btn btn-edit">✏️ Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="item" data-item="mechas">
+                        <div class="item-left">
+                            <div class="item-name">mechas</div>
+                            <div class="item-value"><span class="value-badge">55% + 18%</span></div>
+                        </div>
+                        <div class="item-right">
+                            <button class="btn btn-edit">✏️ Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="item" data-item="electrodos">
+                        <div class="item-left">
+                            <div class="item-name">electrodos</div>
+                            <div class="item-value"><span class="value-badge">0% + 0%</span></div>
+                        </div>
+                        <div class="item-right">
+                            <button class="btn btn-edit">✏️ Editar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESCUENTOS POR PAGO -->
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-title">💳 Descuentos por Condición de Pago</div>
+                    <div class="section-desc">Descuentos adicionales según forma de pago</div>
+                </div>
+                <div class="section-content">
+                    <div class="item" data-item="contado">
+                        <div class="item-left">
+                            <div class="item-name">🏷️ Contado</div>
+                            <div class="item-value"><span class="value-badge">0% + 0%</span></div>
+                        </div>
+                        <div class="item-right">
+                            <button class="btn btn-edit">✏️ Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="item" data-item="30dias">
+                        <div class="item-left">
+                            <div class="item-name">📅 30 días</div>
+                            <div class="item-value"><span class="value-badge">5% + 0%</span></div>
+                        </div>
+                        <div class="item-right">
+                            <button class="btn btn-edit">✏️ Editar</button>
+                        </div>
+                    </div>
+
+                    <div class="item" data-item="60dias">
+                        <div class="item-left">
+                            <div class="item-name">📅 60 días</div>
+                            <div class="item-value"><span class="value-badge">0% + 0%</span></div>
+                        </div>
+                        <div class="item-right">
+                            <button class="btn btn-edit">✏️ Editar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STOCK Y CACHE -->
+            <div class="section">
+                <div class="section-header">
+                    <div class="section-title">⚡ Stock y Caché</div>
+                    <div class="section-desc">Tiempos de reserva y actualizaciones</div>
+                </div>
+                <div class="section-content">
+                    <div class="stat-box">
+                        <div class="stat-label">⏱️ Tiempo de reserva de stock</div>
+                        <div class="stat-value">30 minutos</div>
+                        <div class="stat-desc">Tiempo que se mantiene un producto reservado sin confirmar</div>
+                    </div>
+
+                    <div class="stat-box">
+                        <div class="stat-label">🔄 TTL del caché de stock</div>
+                        <div class="stat-value">300 segundos</div>
+                        <div class="stat-desc">Tiempo que se guarda en caché el estado del stock antes de consultar BD</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div style="font-weight: 600; margin-bottom: 10px;">📌 ¿Qué significan estos tiempos?</div>
+                <div style="margin-bottom: 8px;">
+                    <strong>⏱️ Tiempo de reserva (30 min):</strong> Cuando un vendedor crea un pedido, los productos se "apartan" para ese cliente durante 30 minutos. Si pasan 30 min sin confirmar, se liberan para otros vendedores.
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <strong>🔄 Caché (300 seg):</strong> El sistema guarda el estado del stock en memoria para responder rápido. Cada 5 minutos se actualiza con datos nuevos de la BD.
+                </div>
+                <div style="font-size: 11px; color: #78350f;">
+                    💡 Por defecto están bien. Solo cambia si ves que los vendedores se demoran mucho confirmando (aumenta reserva) o necesitas stock más actualizado (reduce caché).
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const data = {
+            buloneria: { desc_1: 25, desc_2: 0 },
+            tolsen: { desc_1: 55, desc_2: 18 },
+            mechas: { desc_1: 55, desc_2: 18 },
+            electrodos: { desc_1: 0, desc_2: 0 },
+            contado: { desc_1: 0, desc_2: 0 },
+            '30dias': { desc_1: 5, desc_2: 0 },
+            '60dias': { desc_1: 0, desc_2: 0 }
+        };
+
+        document.querySelectorAll('.item').forEach(item => {
+            const itemKey = item.dataset.item;
+            const editBtn = item.querySelector('.btn-edit');
+
+            editBtn.addEventListener('click', () => {
+                const currentData = data[itemKey];
+                const itemLeft = item.querySelector('.item-left');
+                const itemRight = item.querySelector('.item-right');
+
+                // Remover valor
+                itemLeft.querySelector('.item-value').remove();
+
+                // Agregar inputs
+                itemLeft.innerHTML += `
+                    <div class="item-inputs">
+                        <div class="input-wrapper">
+                            <label class="input-label">Descuento 1 (%)</label>
+                            <input type="number" class="input-1" value="${currentData.desc_1}">
+                        </div>
+                        <div class="input-wrapper">
+                            <label class="input-label">Descuento 2 (%)</label>
+                            <input type="number" class="input-2" value="${currentData.desc_2}">
+                        </div>
+                    </div>
+                `;
+
+                // Cambiar botones
+                itemRight.innerHTML = `
+                    <button class="btn btn-save">✅ Guardar</button>
+                    <button class="btn btn-cancel">Cancelar</button>
+                `;
+
+                item.classList.add('editing');
+
+                // Guardar
+                itemRight.querySelector('.btn-save').addEventListener('click', () => {
+                    const v1 = parseInt(itemLeft.querySelector('.input-1').value);
+                    const v2 = parseInt(itemLeft.querySelector('.input-2').value);
+                    data[itemKey] = { desc_1: v1, desc_2: v2 };
+
+                    // Mostrar éxito
+                    const msg = document.querySelector('#successMsg');
+                    msg.className = 'success-msg';
+                    msg.textContent = '✅ Guardado correctamente';
+                    setTimeout(() => msg.textContent = '', 3000);
+
+                    cancelar();
+                });
+
+                // Cancelar
+                itemRight.querySelector('.btn-cancel').addEventListener('click', cancelar);
+
+                function cancelar() {
+                    const v = data[itemKey];
+                    itemLeft.querySelector('.item-inputs').remove();
+                    itemLeft.innerHTML += `<div class="item-value"><span class="value-badge">${v.desc_1}% + ${v.desc_2}%</span></div>`;
+                    itemRight.innerHTML = `<button class="btn btn-edit">✏️ Editar</button>`;
+                    item.classList.remove('editing');
+
+                    // Re-agregar listener
+                    itemRight.querySelector('.btn-edit').addEventListener('click', arguments.callee.bind(null));
+                }
+            });
+        });
+    </script>
+</body>
+</html>

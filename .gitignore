@@ -1,0 +1,63 @@
+# --- Secretos: NUNCA subir ---
+.env
+.env.local
+*.env
+!.env.example
+.env.hostinger
+# scripts sueltos con la clave de la BD hardcodeada
+check-elec.mjs
+check-fam.mjs
+check-perms.mjs
+setup-v002.mjs
+V002-BACKUP/README.md
+deploy.sh
+deploy_ftp.sh
+deploy_ssh.sh
+DEPLOY.bat
+.claude.json
+.claude.json.backup
+.openclaude.json
+
+# --- Dependencias y build ---
+node_modules/
+.vite/
+*.log
+
+# --- Carpeta de usuario de Windows (la raiz de este repo es C:\Users\...) ---
+AppData/
+Desktop/
+Contacts/
+Downloads/
+Documents/Mi*/
+Favorites/
+Links/
+Music/
+Pictures/
+Videos/
+Saved Games/
+Searches/
+OneDrive/
+.cache/
+.config/
+.local/
+.bun/
+.chocolatey/
+.codex/
+.lingma/
+.matplotlib/
+.EasyOCR/
+.th-client/
+.sbx-denybin/
+.vscode/
+.vscode-shared/
+.openclaude/
+.node_repl_history
+.gitconfig
+ntuser.*
+NTUSER.*
+
+# --- Archivos pesados ---
+*.mp4
+*.mov
+*.zip
+*.rar

@@ -1,0 +1,6 @@
+[
+  { "codigo": "A", "nombre": "Minorista",    "porcentaje": 5,  "color": "gray"   },
+  { "codigo": "B", "nombre": "Mayorista",    "porcentaje": 10, "color": "blue"   },
+  { "codigo": "C", "nombre": "Distribuidor", "porcentaje": 15, "color": "green"  },
+  { "codigo": "D", "nombre": "Especial",     "porcentaje": 20, "color": "purple" }
+]

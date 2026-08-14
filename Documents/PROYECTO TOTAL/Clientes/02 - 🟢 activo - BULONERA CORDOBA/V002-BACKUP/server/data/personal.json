@@ -1,0 +1,58 @@
+[
+  {
+    "id": "1",
+    "nombre": "Administrador",
+    "usuario": "admin",
+    "passwordHash": "$2b$10$fXwidGdx99ItbcAgfT20MuSVEgIPEYRauXbh/RHBT3pNLcdmDbeCi",
+    "rol": "Administrador",
+    "permisos": {
+      "secciones": [
+        "nuevo-pedido",
+        "aprobaciones",
+        "cotizaciones",
+        "clientes",
+        "productos",
+        "integraciones",
+        "personal"
+      ],
+      "puedeAprobarFamilias": true,
+      "puedeEnviarCliente": true
+    },
+    "activo": true
+  },
+  {
+    "id": "1786501096717",
+    "nombre": "Juan Vendedor",
+    "usuario": "vendedor1",
+    "passwordHash": "$2b$10$JPh5nqYNZT9wS/i9qmJ9neC5PboXhRSFSiSAq564tLTqQTHdGgEX.",
+    "rol": "Vendedor",
+    "permisos": {
+      "secciones": [
+        "nuevo-pedido",
+        "aprobaciones",
+        "cotizaciones",
+        "clientes",
+        "productos"
+      ],
+      "puedeAprobarFamilias": false,
+      "puedeEnviarCliente": true
+    },
+    "activo": true
+  },
+  {
+    "id": "1786501096843",
+    "nombre": "Marcos Depósito",
+    "usuario": "deposito1",
+    "passwordHash": "$2b$10$ZvXAxCUe9b8R1Utk7WqLlOrDsPNdVAZhOocgXzCVU1HoNy.kI8lnS",
+    "rol": "Deposito",
+    "permisos": {
+      "secciones": [
+        "aprobaciones",
+        "productos"
+      ],
+      "puedeAprobarFamilias": true,
+      "puedeEnviarCliente": false
+    },
+    "activo": true
+  }
+]

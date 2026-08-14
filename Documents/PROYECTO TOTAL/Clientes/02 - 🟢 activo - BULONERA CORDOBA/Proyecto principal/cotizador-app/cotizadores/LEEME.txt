@@ -1,0 +1,10 @@
+Copiá los 3 archivos Excel de cotizadores en esta carpeta con estos nombres exactos:
+
+  COTIZADOR_BULONERIA.xls
+  COTIZADOR_MECHAS.xls
+  COTIZADOR_TOLSEN.xlsm
+
+Luego ejecutá desde la carpeta server/:
+  node services/lectorExcel.js
+
+Eso genera los archivos JSON en server/data/ que usa la app.

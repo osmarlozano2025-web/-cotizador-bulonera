@@ -1,0 +1,716 @@
+[
+  {
+    "id": "1786497089330",
+    "token": "fdc06ec532823704f0",
+    "clienteId": "1000",
+    "clienteNombre": "Ferretería El Tornillo",
+    "clienteTelefono": "351 423-1122",
+    "clienteEmail": "garcia@eltornillo.com.ar",
+    "descuento": 5,
+    "total": 15689.73,
+    "estado": "confirmado",
+    "subpedidos": [
+      {
+        "familia": "buloneria",
+        "items": [
+          {
+            "codigo": "62112032",
+            "descripcion": "BULON ASTM \"A325\"",
+            "medida": "1/2X1-1/4",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 400,
+            "unidadFraccion": 150,
+            "precioLista": 578.86,
+            "precioGranel": 289.43,
+            "cantidad": 1
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:11:41.191Z"
+      },
+      {
+        "familia": "tolsen",
+        "items": [
+          {
+            "codigo": "75871",
+            "descripcion": "MECHA ESCALONADA",
+            "medida": "4-12x2mm",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "ACCESORIOS HERRAMIENTAS ELECTRICAS",
+            "unidadGranel": 80,
+            "unidadFraccion": 10,
+            "precioLista": 15272.78,
+            "precioGranel": 15272.78,
+            "stock": 874,
+            "cantidad": 1
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:11:47.828Z"
+      },
+      {
+        "familia": "mechas",
+        "items": [
+          {
+            "codigo": "90300005",
+            "descripcion": "MECHA WIDIA VASTAGO CILINDRICO",
+            "medida": "5X85MM",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 100,
+            "unidadFraccion": 50,
+            "precioLista": 3189.48,
+            "precioGranel": 953.3,
+            "cantidad": 1
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:11:53.463Z"
+      }
+    ],
+    "fechaCreacion": "2026-08-12T01:11:29.330Z",
+    "fechaEnvioCliente": "2026-08-12T01:21:49.613Z",
+    "fechaConfirmacion": "2026-08-12T01:22:16.056Z"
+  },
+  {
+    "id": "1786498465473",
+    "token": "82ad0a83796bac510d",
+    "clienteId": "1000",
+    "clienteNombre": "Ferretería El Tornillo",
+    "clienteTelefono": "351 423-1122",
+    "clienteEmail": "garcia@eltornillo.com.ar",
+    "descuento": 5,
+    "total": 7364592.64,
+    "estado": "confirmado",
+    "subpedidos": [
+      {
+        "familia": "buloneria",
+        "items": [
+          {
+            "codigo": "52306019",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6,5 x 19",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 3400,
+            "unidadFraccion": 400,
+            "precioLista": 88.18,
+            "precioGranel": 44.09,
+            "cantidad": 4
+          },
+          {
+            "codigo": "52306025",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6,5 x 25",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 3000,
+            "unidadFraccion": 400,
+            "precioLista": 101.67,
+            "precioGranel": 50.84,
+            "cantidad": 2
+          },
+          {
+            "codigo": "52306032",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6.5 x 32",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 2500,
+            "unidadFraccion": 300,
+            "precioLista": 116.52,
+            "precioGranel": 58.26,
+            "cantidad": 3
+          },
+          {
+            "codigo": "52306038",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6,5 x 38",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 1700,
+            "unidadFraccion": 300,
+            "precioLista": 121.38,
+            "precioGranel": 60.69,
+            "cantidad": 2
+          },
+          {
+            "codigo": "52306044",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6,5 x 44",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 1500,
+            "unidadFraccion": 300,
+            "precioLista": 134.7,
+            "precioGranel": 67.35,
+            "cantidad": 2
+          },
+          {
+            "codigo": "52306050",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6,5 x 50",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 1300,
+            "unidadFraccion": 200,
+            "precioLista": 148.1,
+            "precioGranel": 74.05,
+            "cantidad": 1
+          },
+          {
+            "codigo": "52306056",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6,5 x 56",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 1200,
+            "unidadFraccion": 200,
+            "precioLista": 161.51,
+            "precioGranel": 80.75,
+            "cantidad": 5
+          },
+          {
+            "codigo": "52306063",
+            "descripcion": "BULON CABEZA REDONDA CUELLO CUADRADO SIN TUERCA",
+            "medida": "6,5 x 63",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 1000,
+            "unidadFraccion": 200,
+            "precioLista": 174.92,
+            "precioGranel": 87.46,
+            "cantidad": 3
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:34:34.142Z"
+      },
+      {
+        "familia": "tolsen",
+        "items": [
+          {
+            "codigo": "79005",
+            "descripcion": "DESTORNILLADOR INALÁMBRICO 4V",
+            "medida": "4V",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "HERRAMIENTAS 20V LITIO",
+            "unidadGranel": 12,
+            "unidadFraccion": 0,
+            "precioLista": 147053.73,
+            "precioGranel": 147053.73,
+            "stock": 55,
+            "cantidad": 2
+          },
+          {
+            "codigo": "85350",
+            "descripcion": "JGO DE HERRAMIENTAS 119 PZAS",
+            "medida": "119 PIEZAS",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "CAJAS DE HERRAMIENTAS",
+            "unidadGranel": 4,
+            "unidadFraccion": 0,
+            "precioLista": 188822.45,
+            "precioGranel": 188822.45,
+            "stock": 161,
+            "cantidad": 1
+          },
+          {
+            "codigo": "85352",
+            "descripcion": "JGO DE HERRAMIENTAS 89 PZAS",
+            "medida": "89 PIEZAS",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "CAJAS DE HERRAMIENTAS",
+            "unidadGranel": 4,
+            "unidadFraccion": 0,
+            "precioLista": 218342.8,
+            "precioGranel": 218342.8,
+            "stock": 125,
+            "cantidad": 3
+          },
+          {
+            "codigo": "85354",
+            "descripcion": "JGO. DE LLAVES Y HERRAMIENTAS",
+            "medida": "116 piezas",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "CAJAS DE HERRAMIENTAS",
+            "unidadGranel": 2,
+            "unidadFraccion": 0,
+            "precioLista": 560208.04,
+            "precioGranel": 560208.04,
+            "stock": 75,
+            "cantidad": 3
+          },
+          {
+            "codigo": "85355",
+            "descripcion": "JGO. DE TUBOS Y HERRAMIENTAS",
+            "medida": "137 piezas",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "CAJAS DE HERRAMIENTAS",
+            "unidadGranel": 2,
+            "unidadFraccion": 0,
+            "precioLista": 705533.98,
+            "precioGranel": 705533.98,
+            "stock": 106,
+            "cantidad": 5
+          },
+          {
+            "codigo": "85401",
+            "descripcion": "JGO HERRAMIENTAS",
+            "medida": "60 PIEZAS",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "CAJAS DE HERRAMIENTAS",
+            "unidadGranel": 1,
+            "unidadFraccion": 0,
+            "precioLista": 698223.96,
+            "precioGranel": 698223.96,
+            "stock": 46,
+            "cantidad": 2
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:34:34.208Z"
+      },
+      {
+        "familia": "mechas",
+        "items": [
+          {
+            "codigo": "90100050",
+            "descripcion": "HSS-M2 MECHA ACERO RÁPIDO VÁSTAGO CILINDRICO",
+            "medida": "0,5MM",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 400,
+            "unidadFraccion": 200,
+            "precioLista": 1165.44,
+            "precioGranel": 348.34,
+            "cantidad": 1
+          },
+          {
+            "codigo": "90100075",
+            "descripcion": "HSS-M2 MECHA ACERO RÁPIDO VÁSTAGO CILINDRICO",
+            "medida": "0.75MM",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 400,
+            "unidadFraccion": 200,
+            "precioLista": 1165.44,
+            "precioGranel": 348.34,
+            "cantidad": 1
+          },
+          {
+            "codigo": "90100100",
+            "descripcion": "HSS-M2 MECHA ACERO RÁPIDO VÁSTAGO CILINDRICO",
+            "medida": "1.0MM",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 400,
+            "unidadFraccion": 200,
+            "precioLista": 1530.38,
+            "precioGranel": 457.42,
+            "cantidad": 3
+          },
+          {
+            "codigo": "90100125",
+            "descripcion": "HSS-M2 MECHA ACERO RÁPIDO VÁSTAGO CILINDRICO",
+            "medida": "1.25M",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 400,
+            "unidadFraccion": 200,
+            "precioLista": 1530.38,
+            "precioGranel": 457.42,
+            "cantidad": 3
+          },
+          {
+            "codigo": "90100150",
+            "descripcion": "HSS-M2 MECHA ACERO RÁPIDO VÁSTAGO CILINDRICO",
+            "medida": "1.5MM",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 400,
+            "unidadFraccion": 200,
+            "precioLista": 1453.86,
+            "precioGranel": 434.54,
+            "cantidad": 5
+          },
+          {
+            "codigo": "90100175",
+            "descripcion": "HSS-M2 MECHA ACERO RÁPIDO VÁSTAGO CILINDRICO",
+            "medida": "1.75MM",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 400,
+            "unidadFraccion": 200,
+            "precioLista": 1632.4,
+            "precioGranel": 487.91,
+            "cantidad": 5
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:34:34.289Z"
+      }
+    ],
+    "fechaCreacion": "2026-08-12T01:34:25.473Z",
+    "fechaEnvioCliente": null,
+    "fechaConfirmacion": "2026-08-12T01:34:35.380Z"
+  },
+  {
+    "id": "1786498940961",
+    "token": "409e38fbd75b7603f8",
+    "clienteId": "1786498826115",
+    "clienteNombre": "Sebastian Acuña",
+    "clienteTelefono": "5491131772207",
+    "clienteEmail": "osmar.lozano.2025@gmail.com",
+    "descuento": 15,
+    "total": 477426.39,
+    "estado": "confirmado",
+    "subpedidos": [
+      {
+        "familia": "buloneria",
+        "items": [
+          {
+            "codigo": "62000016",
+            "descripcion": "TUERCA 2H ROSCA UNC",
+            "medida": "5/8 - 11H",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 370,
+            "unidadFraccion": 100,
+            "precioLista": 601.22,
+            "precioGranel": 300.61,
+            "cantidad": 15
+          },
+          {
+            "codigo": "54301009",
+            "descripcion": "TUERCA HEXAGONAL GRADO 2 NATURAL UNC",
+            "medida": "3/8-16",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 2600,
+            "unidadFraccion": 500,
+            "precioLista": 62.75,
+            "precioGranel": 31.38,
+            "cantidad": 110
+          },
+          {
+            "codigo": "62112044",
+            "descripcion": "BULON ASTM \"A325\"",
+            "medida": "1/2X1-3/4",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 320,
+            "unidadFraccion": 100,
+            "precioLista": 717.6,
+            "precioGranel": 358.8,
+            "cantidad": 40
+          },
+          {
+            "codigo": "62112038",
+            "descripcion": "BULON ASTM \"A325\"",
+            "medida": "1/2X1-1/2",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 350,
+            "unidadFraccion": 100,
+            "precioLista": 650.82,
+            "precioGranel": 325.41,
+            "cantidad": 15
+          },
+          {
+            "codigo": "62112032",
+            "descripcion": "BULON ASTM \"A325\"",
+            "medida": "1/2X1-1/4",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 400,
+            "unidadFraccion": 150,
+            "precioLista": 578.86,
+            "precioGranel": 289.43,
+            "cantidad": 25
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:42:50.113Z"
+      },
+      {
+        "familia": "tolsen",
+        "items": [
+          {
+            "codigo": "20056",
+            "descripcion": "JGOLLAVEALLEN HEX TORX LARGA",
+            "medida": "RANGO T10-T50 (9PZA)",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "HERRAMIENTAS DE FIJACION",
+            "unidadGranel": 36,
+            "unidadFraccion": 6,
+            "precioLista": 21089.93,
+            "precioGranel": 21089.93,
+            "stock": 1704,
+            "cantidad": 25
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:42:53.160Z"
+      }
+    ],
+    "fechaCreacion": "2026-08-12T01:42:20.961Z",
+    "fechaEnvioCliente": "2026-08-12T01:43:20.938Z",
+    "fechaConfirmacion": "2026-08-12T01:44:06.823Z"
+  },
+  {
+    "id": "1786499213794",
+    "token": "a7c4ca365d51788a14",
+    "clienteId": "1786498826115",
+    "clienteNombre": "Sebastian Acuña",
+    "clienteTelefono": "5491131772207",
+    "clienteEmail": "osmar.lozano.2025@gmail.com",
+    "descuento": 15,
+    "total": 2396169.14,
+    "estado": "confirmado",
+    "subpedidos": [
+      {
+        "familia": "buloneria",
+        "items": [
+          {
+            "codigo": "53305019",
+            "descripcion": "TORN.HO.C/TANQUE",
+            "medida": "3/16 x 3/4",
+            "marca": "CORDOBABULONES",
+            "familia": "buloneria",
+            "unidadGranel": 8000,
+            "unidadFraccion": 1000,
+            "precioLista": 42.2,
+            "precioGranel": 21.1,
+            "cantidad": 58
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:47:20.579Z"
+      },
+      {
+        "familia": "mechas",
+        "items": [
+          {
+            "codigo": "90505160",
+            "descripcion": "MECHA SDS PLUS PARA HORMIGON",
+            "medida": "5X160MM",
+            "marca": "PANTTHOR",
+            "familia": "mechas",
+            "unidadGranel": 400,
+            "unidadFraccion": 100,
+            "precioLista": 4708.89,
+            "precioGranel": 1407.44,
+            "cantidad": 55
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:47:21.736Z"
+      },
+      {
+        "familia": "tolsen",
+        "items": [
+          {
+            "codigo": "90009",
+            "descripcion": "MOCHILA",
+            "medida": "32cm x 25cm x 48cm",
+            "marca": "TOLSEN",
+            "familia": "tolsen",
+            "subfamilia": "OTROS",
+            "unidadGranel": 4,
+            "unidadFraccion": 0,
+            "precioLista": 249126.32,
+            "precioGranel": 249126.32,
+            "stock": 42,
+            "cantidad": 11
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": null,
+        "fechaAprobacion": "2026-08-12T01:47:22.833Z"
+      }
+    ],
+    "fechaCreacion": "2026-08-12T01:46:53.794Z",
+    "fechaEnvioCliente": "2026-08-12T01:47:48.209Z",
+    "fechaConfirmacion": "2026-08-12T01:48:17.627Z"
+  },
+  {
+    "id": "1786501157573",
+    "token": "d9fc1a2457df6c2ea8",
+    "clienteId": "1000",
+    "clienteNombre": "Ferreter�a El Tornillo",
+    "clienteTelefono": "351 423-1122",
+    "clienteEmail": "garcia@eltornillo.com.ar",
+    "descuento": 5,
+    "total": 332.5,
+    "estado": "esperando_confirmacion",
+    "subpedidos": [
+      {
+        "familia": "buloneria",
+        "items": [
+          {
+            "codigo": "X1",
+            "descripcion": "Test permisos buloneria",
+            "familia": "buloneria",
+            "medida": "1/2",
+            "cantidad": 1,
+            "precioGranel": 100
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": "1786501096843",
+        "fechaAprobacion": "2026-08-12T02:19:58.339Z"
+      },
+      {
+        "familia": "tolsen",
+        "items": [
+          {
+            "codigo": "X2",
+            "descripcion": "Test permisos tolsen",
+            "familia": "tolsen",
+            "medida": "",
+            "cantidad": 1,
+            "precioGranel": 200
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": "1786501096843",
+        "fechaAprobacion": "2026-08-12T02:19:58.398Z"
+      },
+      {
+        "familia": "mechas",
+        "items": [
+          {
+            "codigo": "X3",
+            "descripcion": "Test permisos mechas",
+            "familia": "mechas",
+            "medida": "6mm",
+            "cantidad": 1,
+            "precioGranel": 50
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": "1786501096843",
+        "fechaAprobacion": "2026-08-12T02:19:58.463Z"
+      }
+    ],
+    "fechaCreacion": "2026-08-12T02:19:17.574Z",
+    "fechaEnvioCliente": null,
+    "fechaConfirmacion": null
+  },
+  {
+    "id": "1786503283708",
+    "token": "eb3b18ea7339a53ab5",
+    "clienteId": "1000",
+    "clienteNombre": "Ferreter�a El Tornillo",
+    "clienteTelefono": "351 423-1122",
+    "clienteEmail": "garcia@eltornillo.com.ar",
+    "descuento": 5,
+    "total": 522.5,
+    "estado": "confirmado",
+    "subpedidos": [
+      {
+        "familia": "buloneria",
+        "items": [
+          {
+            "codigo": "M1",
+            "descripcion": "Test MySQL buloneria",
+            "familia": "buloneria",
+            "medida": "1/2",
+            "cantidad": 2,
+            "precioGranel": 100
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": "1",
+        "fechaAprobacion": "2026-08-12T02:54:44.130Z"
+      },
+      {
+        "familia": "tolsen",
+        "items": [
+          {
+            "codigo": "M2",
+            "descripcion": "Test MySQL tolsen",
+            "familia": "tolsen",
+            "medida": "",
+            "cantidad": 1,
+            "precioGranel": 200
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": "1",
+        "fechaAprobacion": "2026-08-12T02:54:44.186Z"
+      },
+      {
+        "familia": "mechas",
+        "items": [
+          {
+            "codigo": "M3",
+            "descripcion": "Test MySQL mechas",
+            "familia": "mechas",
+            "medida": "6mm",
+            "cantidad": 3,
+            "precioGranel": 50
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": "1",
+        "fechaAprobacion": "2026-08-12T02:54:44.239Z"
+      }
+    ],
+    "fechaCreacion": "2026-08-12T02:54:43.708Z",
+    "fechaEnvioCliente": null,
+    "fechaConfirmacion": "2026-08-12T02:54:44.406Z"
+  },
+  {
+    "id": "1786506200397",
+    "token": "2ed51cc32832fcf953",
+    "clienteId": "1000",
+    "clienteNombre": "Ferreter�a El Tornillo",
+    "clienteTelefono": "351 423-1122",
+    "clienteEmail": "garcia@eltornillo.com.ar",
+    "descuento": 5,
+    "total": 95,
+    "estado": "esperando_confirmacion",
+    "subpedidos": [
+      {
+        "familia": "buloneria",
+        "items": [
+          {
+            "codigo": "H1",
+            "descripcion": "Prueba deploy Hostinger",
+            "familia": "buloneria",
+            "medida": "1/2",
+            "cantidad": 1,
+            "precioGranel": 100
+          }
+        ],
+        "aprobado": true,
+        "aprobadoPor": "1",
+        "fechaAprobacion": "2026-08-12T03:43:20.586Z"
+      }
+    ],
+    "fechaCreacion": "2026-08-12T03:43:20.398Z",
+    "fechaEnvioCliente": null,
+    "fechaConfirmacion": null
+  }
+]
