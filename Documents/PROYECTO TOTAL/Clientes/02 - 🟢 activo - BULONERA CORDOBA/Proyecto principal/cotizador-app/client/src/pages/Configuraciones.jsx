@@ -166,7 +166,7 @@ export default function Configuraciones() {
 
       {/* DEPÓSITOS Y RESPONSABLES */}
       <section className="bg-white/5 rounded-lg shadow-sm border border-white/10 overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-50 to-transparent px-6 py-4 border-b border-white/10">
+        <div className="bg-gradient-to-r from-emerald-500/15 to-transparent px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-slate-100">🏭 Depósitos y responsables</h2>
           <p className="text-xs text-slate-300 mt-1">
             Cada familia se despacha desde su depósito. El responsable asignado sólo ve los pedidos de su depósito.
@@ -194,7 +194,7 @@ export default function Configuraciones() {
                 value={dep.responsableId || ''}
                 onChange={(e) => asignarResponsable(familia, e.target.value)}
                 disabled={guardando}
-                className="shrink-0 px-3 py-2 border border-white/10 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                className="shrink-0 px-3 py-2 border border-white/10 rounded-lg text-sm bg-white/5 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
               >
                 <option value="">— Sin asignar —</option>
                 {personal.map((p) => (
@@ -210,7 +210,7 @@ export default function Configuraciones() {
 
       {/* RANGO PERMITIDO */}
       <section className="bg-white/5 rounded-lg shadow-sm border border-white/10 overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-50 to-transparent px-6 py-4 border-b border-white/10">
+        <div className="bg-gradient-to-r from-indigo-500/15 to-transparent px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-slate-100">🎚️ Rango permitido</h2>
           <p className="text-xs text-slate-300 mt-1">
             Los topes por familia no pueden salirse de acá.
@@ -235,7 +235,7 @@ export default function Configuraciones() {
               className="w-28 px-3 py-2 border border-white/10 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
           </div>
-          <span className="pb-2.5 text-slate-500">a</span>
+          <span className="pb-2.5 text-slate-400">a</span>
           <div>
             <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
               Máximo
@@ -252,7 +252,7 @@ export default function Configuraciones() {
               className="w-28 px-3 py-2 border border-white/10 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             />
           </div>
-          <p className="text-xs text-slate-500 pb-2.5">
+          <p className="text-xs text-slate-400 pb-2.5">
             Hoy: de {rangoMin}% a {rangoMax}%
           </p>
         </div>
@@ -260,7 +260,7 @@ export default function Configuraciones() {
 
       {/* DESCUENTOS POR FAMILIA */}
       <section className="bg-white/5 rounded-lg shadow-sm border border-white/10 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-50 to-transparent px-6 py-4 border-b border-white/10">
+        <div className="bg-gradient-to-r from-sky-500/15 to-transparent px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-slate-100">📦 Descuentos por Familia</h2>
           <p className="text-xs text-slate-300 mt-1">
             Es el <strong>tope</strong> de cada familia: lo máximo que se puede dar en un pedido.
@@ -302,10 +302,10 @@ export default function Configuraciones() {
                       ? 'border-green-300 text-emerald-400 focus:ring-green-500'
                       : limite > 0
                         ? 'border-amber-400/50 text-amber-300 bg-amber-500/10 focus:ring-amber-500'
-                        : 'border-white/10 focus:ring-blue-500'
+                        : 'border-white/10 focus:ring-[var(--cb-500)]'
                   }`}
                 />
-                <span className="text-sm text-slate-500">%</span>
+                <span className="text-sm text-slate-400">%</span>
               </div>
             </div>
           ))}
@@ -318,7 +318,7 @@ export default function Configuraciones() {
 
       {/* CONDICIÓN DE PAGO */}
       <section className="tarjeta overflow-hidden">
-        <div className="px-6 py-4 border-b border-white/10 bg-gradient-to-r from-violet-50 to-transparent">
+        <div className="px-6 py-4 border-b border-white/10 bg-gradient-to-r from-violet-500/15 to-transparent">
           <h2 className="text-lg font-semibold text-slate-100">💳 Condición de pago</h2>
           <p className="text-xs text-slate-300 mt-1">
             Puede descontar o aumentar. <strong>Negativo descuenta, positivo aumenta.</strong>
@@ -332,7 +332,7 @@ export default function Configuraciones() {
                 <h3 className="font-semibold text-slate-100">
                   {tipo === 'contado' ? 'Contado' : tipo === '30dias' ? '30 días' : '60 días'}
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5">
                   {valor === 0
                     ? 'No modifica el precio'
                     : valor < 0
@@ -372,7 +372,7 @@ export default function Configuraciones() {
 
       {/* STOCK Y CACHE */}
       <section className="bg-white/5 rounded-lg shadow-sm border border-white/10 overflow-hidden">
-        <div className="bg-gradient-to-r from-orange-50 to-transparent px-6 py-4 border-b border-white/10">
+        <div className="bg-gradient-to-r from-orange-500/15 to-transparent px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-slate-100">⚡ Stock y Caché</h2>
           <p className="text-xs text-slate-300 mt-1">Tiempos de reserva y actualizaciones</p>
         </div>

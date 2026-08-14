@@ -28,7 +28,7 @@ export default function Productos() {
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-bold text-slate-100">Productos</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Catálogo del servidor (mismo origen que usa la interpretación de fotos y los pedidos)</p>
+        <p className="text-sm text-slate-400 mt-0.5">Catálogo del servidor (mismo origen que usa la interpretación de fotos y los pedidos)</p>
       </div>
 
       <div className="flex gap-2">
@@ -36,13 +36,13 @@ export default function Productos() {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Buscar por descripción, código o medida..."
-          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]"
         />
         {familias.length > 0 && (
           <select
             value={familia}
             onChange={e => setFamilia(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border rounded-lg px-3 py-2 text-sm bg-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]"
           >
             <option value="">Todas</option>
             {familias.map(f => (
@@ -53,13 +53,13 @@ export default function Productos() {
       </div>
 
       {query.length < 2 ? (
-        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-400 bg-white/5 border rounded-xl p-10 text-center">
           Escribí al menos 2 letras para buscar en el catálogo.
         </p>
       ) : buscando ? (
-        <p className="text-sm text-slate-500 px-1">Buscando...</p>
+        <p className="text-sm text-slate-400 px-1">Buscando...</p>
       ) : resultados.length === 0 ? (
-        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-400 bg-white/5 border rounded-xl p-10 text-center">
           Sin resultados para "{query}".
         </p>
       ) : (
@@ -77,9 +77,9 @@ export default function Productos() {
             <tbody className="divide-y divide-white/5">
               {resultados.map((p, i) => (
                 <tr key={i} className="hover:bg-white/5">
-                  <td className="px-4 py-2.5 text-slate-500 text-xs">{p.codigo || '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-400 text-xs">{p.codigo || '—'}</td>
                   <td className="px-4 py-2.5">{p.descripcion}</td>
-                  <td className="px-4 py-2.5 text-slate-500">{p.medida || '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-400">{p.medida || '—'}</td>
                   <td className="px-4 py-2.5 capitalize text-sky-400">{p.familia}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-emerald-400">
                     {p.precioGranel > 0 ? `$${p.precioGranel.toFixed(2)}` : '—'}

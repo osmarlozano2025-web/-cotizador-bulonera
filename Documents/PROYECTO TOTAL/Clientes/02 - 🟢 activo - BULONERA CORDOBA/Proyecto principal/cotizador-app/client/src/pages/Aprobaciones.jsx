@@ -29,10 +29,10 @@ function BuscarReemplazo({ familia, onElegir, onCancelar }) {
   }, [query, familia])
 
   return (
-    <div className="mt-2 bg-white border border-amber-300 rounded-lg p-3 space-y-2">
+    <div className="mt-2 bg-white/5 border border-amber-400/40 rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-amber-800">Elegí el producto similar que sí tenés</p>
-        <button onClick={onCancelar} className="text-xs text-slate-500 hover:text-slate-300">Cancelar</button>
+        <p className="text-xs font-semibold text-amber-300">Elegí el producto similar que sí tenés</p>
+        <button onClick={onCancelar} className="text-xs text-slate-400 hover:text-slate-300">Cancelar</button>
       </div>
 
       <input
@@ -43,7 +43,7 @@ function BuscarReemplazo({ familia, onElegir, onCancelar }) {
         autoFocus
       />
 
-      {buscando && <p className="text-xs text-slate-500">Buscando...</p>}
+      {buscando && <p className="text-xs text-slate-400">Buscando...</p>}
 
       {resultados.length > 0 && (
         <div className="max-h-52 overflow-y-auto divide-y divide-white/5 border rounded-lg">
@@ -54,7 +54,7 @@ function BuscarReemplazo({ familia, onElegir, onCancelar }) {
               className="w-full text-left px-3 py-2 hover:bg-amber-500/10 transition"
             >
               <p className="text-xs font-medium text-slate-100">{p.descripcion}</p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-400">
                 {p.codigo} {p.medida ? `· ${p.medida}` : ''} · {money(p.precioGranel ?? p.precio)}
               </p>
             </button>
@@ -120,7 +120,7 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
   return (
     <div className={`py-2 ${esReemplazo ? 'pl-4 border-l-2 border-emerald-400' : ''}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className={`flex-1 min-w-0 ${sinStock ? 'line-through text-slate-500' : ''}`}>
+        <div className={`flex-1 min-w-0 ${sinStock ? 'line-through text-slate-400' : ''}`}>
           <p className="text-xs text-slate-100">
             <span className="font-semibold">{item.cantidadConfirmada ?? item.cantidad}×</span>{' '}
             {item.descripcion}
@@ -131,7 +131,7 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
               </span>
             )}
           </p>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-slate-400">
             {item.codigo} {item.medida ? `· ${item.medida}` : ''} · {money(item.precioNeto || item.precioGranel)}
             {item.precioLista > (item.precioNeto || item.precioGranel) && (
               <span className="line-through ml-1">{money(item.precioLista)}</span>
@@ -176,13 +176,13 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
           )}
 
           {pendiente && (!puedeRevisar || bloqueado) && (
-            <span className="text-[11px] text-slate-500">Sin revisar</span>
+            <span className="text-[11px] text-slate-400">Sin revisar</span>
           )}
         </div>
       </div>
 
       {item.nota && !esReemplazo && (
-        <p className="text-[11px] text-slate-500 mt-0.5">{item.nota}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5">{item.nota}</p>
       )}
       {error && <p className="text-[11px] text-rose-400 mt-1">{error}</p>}
 
@@ -211,7 +211,7 @@ function EnviarCliente({ pedido, onEnviado }) {
 
   return (
     <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 space-y-3">
-      <p className="text-sm font-semibold text-green-800">✓ Aprobado internamente — listo para enviar al cliente</p>
+      <p className="text-sm font-semibold text-emerald-300">✓ Aprobado internamente — listo para enviar al cliente</p>
       <div className="flex flex-wrap gap-2">
         <a href={linkWhatsApp(pedido)} target="_blank" rel="noreferrer" onClick={marcar}
           className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
@@ -256,10 +256,10 @@ function Historial({ pedidoId }) {
   }, [pedidoId])
 
   if (error) return <p className="text-xs text-rose-400">{error}</p>
-  if (!eventos) return <p className="text-xs text-slate-500">Cargando historial...</p>
+  if (!eventos) return <p className="text-xs text-slate-400">Cargando historial...</p>
   if (!eventos.length) {
     return (
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-slate-400">
         Sin movimientos registrados. El historial se completa con lo que pase de ahora en adelante.
       </p>
     )
@@ -269,11 +269,11 @@ function Historial({ pedidoId }) {
     <ol className="space-y-2 border-l-2 border-white/10 pl-3">
       {eventos.map(ev => (
         <li key={ev.id} className="text-xs relative">
-          <span className="absolute -left-[19px] bg-white text-[10px]">
+          <span className="absolute -left-[19px] bg-white/5 text-[10px]">
             {ICONO_EVENTO[ev.evento] || '•'}
           </span>
           <p className="text-slate-200">{ev.detalle || ev.evento}</p>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-slate-400">
             {new Date(ev.fecha.replace(' ', 'T')).toLocaleString('es-AR')}
             {ev.usuarioNombre && ` · ${ev.usuarioNombre}`}
             {ev.estadoAnterior && ev.estadoNuevo && ` · ${ev.estadoAnterior} → ${ev.estadoNuevo}`}
@@ -314,7 +314,7 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
               </span>
             )}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             {new Date(pedido.fechaCreacion).toLocaleString('es-AR')} · {money(pedido.total)}
             {' · '}Pago {LABEL_CONDICION_PAGO[pedido.condicionPago] || 'Contado'}
           </p>
@@ -445,7 +445,7 @@ export default function Aprobaciones() {
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-bold text-slate-100">Aprobaciones</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Pedidos separados por depósito, pendientes de aprobar stock o de confirmar con el cliente</p>
+        <p className="text-sm text-slate-400 mt-0.5">Pedidos separados por depósito, pendientes de aprobar stock o de confirmar con el cliente</p>
       </div>
 
       {state?.creado && (
@@ -455,9 +455,9 @@ export default function Aprobaciones() {
       )}
 
       {cargando ? (
-        <p className="text-sm text-slate-500">Cargando...</p>
+        <p className="text-sm text-slate-400">Cargando...</p>
       ) : pendientes.length === 0 ? (
-        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-400 bg-white/5 border rounded-xl p-10 text-center">
           No hay pedidos pendientes de aprobación.
         </p>
       ) : (

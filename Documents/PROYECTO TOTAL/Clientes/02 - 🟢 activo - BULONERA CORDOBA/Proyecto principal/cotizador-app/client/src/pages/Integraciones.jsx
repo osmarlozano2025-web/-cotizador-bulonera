@@ -32,16 +32,16 @@ function CampoClave({ titulo, descripcion, mascara, configurada, onGuardar }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-semibold text-slate-100 text-sm">{titulo}</p>
-          <p className="text-xs text-slate-500">{descripcion}</p>
+          <p className="text-xs text-slate-400">{descripcion}</p>
         </div>
         <span className={`text-xs font-semibold rounded px-2 py-0.5 border ${
-          configurada ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-white/5 text-slate-500 border-white/10'
+          configurada ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-white/5 text-slate-400 border-white/10'
         }`}>
           {configurada ? '✓ Configurada' : 'Sin configurar'}
         </span>
       </div>
 
-      {configurada && <p className="text-xs text-slate-500">Actual: <span className="font-mono">{mascara}</span></p>}
+      {configurada && <p className="text-xs text-slate-400">Actual: <span className="font-mono">{mascara}</span></p>}
 
       <div className="flex gap-2">
         <input
@@ -49,7 +49,7 @@ function CampoClave({ titulo, descripcion, mascara, configurada, onGuardar }) {
           value={valor}
           onChange={e => setValor(e.target.value)}
           placeholder={configurada ? 'Reemplazar por una nueva clave...' : 'Pegar la API key...'}
-          className="flex-1 border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]"
         />
         <button
           onClick={guardar}
@@ -83,7 +83,7 @@ export default function Integraciones() {
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-bold text-slate-100">Integraciones</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Claves de API usadas por el sistema</p>
+        <p className="text-sm text-slate-400 mt-0.5">Claves de API usadas por el sistema</p>
       </div>
 
       {error && <p className="text-sm text-rose-400 bg-rose-500/10 border border-red-100 rounded-lg px-3 py-2">{error}</p>}

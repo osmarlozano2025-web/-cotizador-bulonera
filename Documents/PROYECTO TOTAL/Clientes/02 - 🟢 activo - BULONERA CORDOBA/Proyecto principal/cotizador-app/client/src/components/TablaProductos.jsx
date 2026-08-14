@@ -188,11 +188,11 @@ export default function TablaProductos({
                           min="0"
                           value={base}
                           onChange={e => actualizar(idx, 'precioGranel', parseFloat(e.target.value) || 0)}
-                          className="tabular w-28 border border-white/10 rounded-lg px-2 py-1.5 text-right text-sm text-slate-500 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] ml-auto block"
+                          className="tabular w-28 border border-white/10 rounded-lg px-2 py-1.5 text-right text-sm text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] ml-auto block"
                         />
                       </td>
                       <td className={`tabular py-2 text-right ${
-                        unit < base ? 'text-emerald-700' : unit > base ? 'text-amber-400' : 'text-slate-300'
+                        unit < base ? 'text-emerald-300' : unit > base ? 'text-amber-400' : 'text-slate-300'
                       }`}>
                         {money(unit)}
                       </td>
@@ -220,7 +220,7 @@ export default function TablaProductos({
       {/* Cómo se llega al total, paso por paso */}
       <div className="flex justify-end">
         <div className="w-full sm:w-96 rounded-2xl border border-white/10 overflow-hidden">
-          <div className="px-4 py-2.5 flex justify-between text-sm text-slate-500 bg-white/5">
+          <div className="px-4 py-2.5 flex justify-between text-sm text-slate-400 bg-white/5">
             <span>Subtotal</span>
             <span className="tabular">{money(totalBase)}</span>
           </div>
@@ -231,7 +231,7 @@ export default function TablaProductos({
               if (ajuste === 0) return null
               return (
                 <div key={familia} className="px-4 py-1.5 flex justify-between text-xs">
-                  <span className="text-slate-500">
+                  <span className="text-slate-400">
                     Descuento {FAMILIAS_LABEL[familia] || familia}
                   </span>
                   <span className={`tabular font-medium ${ajuste < 0 ? 'text-emerald-600' : 'text-amber-400'}`}>
@@ -243,13 +243,13 @@ export default function TablaProductos({
 
             {descuento > 0 && (
               <div className="px-4 py-1.5 flex justify-between text-xs">
-                <span className="text-slate-500">Descuento del cliente</span>
+                <span className="text-slate-400">Descuento del cliente</span>
                 <span className="tabular font-medium text-emerald-600">−{descuento}%</span>
               </div>
             )}
 
             <div className="px-4 py-1.5 flex justify-between text-xs">
-              <span className="text-slate-500">
+              <span className="text-slate-400">
                 Pago {LABEL_CONDICION_PAGO[condicionPago] || 'Contado'}
               </span>
               <span className={`tabular font-medium ${
@@ -262,7 +262,7 @@ export default function TablaProductos({
 
           {diferencia !== 0 && (
             <div className="px-4 py-1.5 flex justify-between text-xs border-t border-white/5">
-              <span className="text-slate-500">{diferencia > 0 ? 'Ahorro' : 'Recargo'}</span>
+              <span className="text-slate-400">{diferencia > 0 ? 'Ahorro' : 'Recargo'}</span>
               <span className={`tabular font-medium ${diferencia > 0 ? 'text-emerald-600' : 'text-amber-400'}`}>
                 {diferencia > 0 ? '−' : '+'}{money(Math.abs(diferencia))}
               </span>

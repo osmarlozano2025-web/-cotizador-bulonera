@@ -41,7 +41,7 @@ export default function Sidebar() {
             if (items.length === 0) return null
             return (
               <div key={sec.titulo}>
-                <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                   {sec.titulo}
                 </p>
                 <div className="space-y-0.5">
@@ -93,12 +93,12 @@ export default function Sidebar() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-white truncate">{user.nombre}</p>
-                <p className="text-[11px] text-slate-500">{user.rol}</p>
+                <p className="text-[11px] text-slate-400">{user.rol}</p>
               </div>
               <button
                 onClick={logout}
                 title="Cerrar sesión"
-                className="text-slate-500 hover:text-rose-400 transition shrink-0 text-lg leading-none"
+                className="text-slate-400 hover:text-rose-400 transition shrink-0 text-lg leading-none"
               >
                 ⏻
               </button>

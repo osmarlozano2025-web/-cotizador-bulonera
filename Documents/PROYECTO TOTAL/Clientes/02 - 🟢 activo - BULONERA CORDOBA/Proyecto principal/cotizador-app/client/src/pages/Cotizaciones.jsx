@@ -23,7 +23,7 @@ export default function Cotizaciones() {
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-bold text-slate-100">Cotizaciones</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Pedidos aprobados internamente y enviados al cliente</p>
+        <p className="text-sm text-slate-400 mt-0.5">Pedidos aprobados internamente y enviados al cliente</p>
       </div>
 
       <div className="flex gap-2 border-b">
@@ -32,7 +32,7 @@ export default function Cotizaciones() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition ${
-              tab === t.key ? 'border-blue-700 text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-300'
+              tab === t.key ? 'border-blue-700 text-sky-400' : 'border-transparent text-slate-400 hover:text-slate-300'
             }`}
           >
             {t.label} ({pedidos.filter(p => t.estados.includes(p.estado)).length})
@@ -41,9 +41,9 @@ export default function Cotizaciones() {
       </div>
 
       {cargando ? (
-        <p className="text-sm text-slate-500">Cargando...</p>
+        <p className="text-sm text-slate-400">Cargando...</p>
       ) : filtrados.length === 0 ? (
-        <p className="text-sm text-slate-500 bg-white border rounded-xl p-10 text-center">
+        <p className="text-sm text-slate-400 bg-white/5 border rounded-xl p-10 text-center">
           {tab === 'espera'
             ? 'No hay cotizaciones esperando confirmación del cliente.'
             : 'Todavía no hay cotizaciones confirmadas por el cliente.'}

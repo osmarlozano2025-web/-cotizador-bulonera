@@ -57,7 +57,7 @@ export default function SubidorFoto({ onAgregar }) {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full border-2 border-dashed border-amber-500/30 rounded-xl p-8 text-center bg-amber-500/10 hover:bg-amber-100 transition"
+          className="w-full border-2 border-dashed border-amber-500/30 rounded-xl p-8 text-center bg-amber-500/10 hover:bg-amber-500/20 transition"
         >
           <div className="text-4xl mb-3">📷</div>
           <p className="font-semibold text-amber-400 text-sm">Subir foto del pedido</p>
@@ -131,7 +131,7 @@ export default function SubidorFoto({ onAgregar }) {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500 mt-1">Sin coincidencias en el catálogo</p>
+                    <p className="text-xs text-slate-400 mt-1">Sin coincidencias en el catálogo</p>
                   )}
                 </li>
               ))}

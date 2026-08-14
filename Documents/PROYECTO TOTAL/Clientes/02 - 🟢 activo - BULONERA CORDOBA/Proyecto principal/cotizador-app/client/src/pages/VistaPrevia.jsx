@@ -10,7 +10,7 @@ export default function VistaPrevia() {
   if (!state?.items?.length) {
     return (
       <div className="text-center py-16">
-        <p className="text-slate-500">No hay items en el pedido.</p>
+        <p className="text-slate-400">No hay items en el pedido.</p>
         <button onClick={() => navigate('/')} className="mt-4 text-sky-400 hover:underline text-sm">
           Volver a Nuevo Pedido
         </button>
@@ -81,9 +81,9 @@ export default function VistaPrevia() {
             <tbody className="divide-y divide-white/5">
               {fItems.map((item, i) => (
                 <tr key={i} className="hover:bg-white/5">
-                  <td className="px-4 py-2.5 text-slate-500 text-xs">{item.codigo || '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-400 text-xs">{item.codigo || '—'}</td>
                   <td className="px-4 py-2.5">{item.descripcion}</td>
-                  <td className="px-4 py-2.5 text-slate-500">{item.medida || '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-400">{item.medida || '—'}</td>
                   <td className="px-4 py-2.5 text-right">{item.cantidad}</td>
                   <td className="px-4 py-2.5 text-right text-slate-300">${(item.precioGranel || item.precio || 0).toFixed(2)}</td>
                   <td className="px-4 py-2.5 text-right font-semibold text-emerald-400">${calcSub(item).toFixed(2)}</td>
@@ -97,7 +97,7 @@ export default function VistaPrevia() {
       <div className="bg-white/5 rounded-xl shadow-sm border p-4 flex justify-end">
         <div className="text-right space-y-1">
           {descuento > 0 && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-400">
               Sin descuento: ${items.reduce((s, i) => s + i.cantidad * (i.precioGranel || i.precio || 0), 0).toFixed(2)}
             </p>
           )}

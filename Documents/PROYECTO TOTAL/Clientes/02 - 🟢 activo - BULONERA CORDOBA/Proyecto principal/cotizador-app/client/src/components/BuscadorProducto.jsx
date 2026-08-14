@@ -34,14 +34,14 @@ export default function BuscadorProducto({ onAgregar }) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Buscar por descripción, código o medida..."
-          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]"
           autoFocus
         />
         {familias.length > 0 && (
           <select
             value={familia}
             onChange={e => setFamilia(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border rounded-lg px-3 py-2 text-sm bg-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]"
           >
             <option value="">Todas</option>
             {familias.map(f => (
@@ -66,7 +66,7 @@ export default function BuscadorProducto({ onAgregar }) {
               >
                 <div>
                   <p className="font-medium text-sm">{p.descripcion}</p>
-                  <div className="text-xs text-slate-500 mt-0.5 flex gap-3">
+                  <div className="text-xs text-slate-400 mt-0.5 flex gap-3">
                     {p.codigo && <span>Cód: {p.codigo}</span>}
                     {p.medida && <span>Med: {p.medida}</span>}
                     <span className="capitalize text-blue-500">{p.familia}</span>
@@ -85,7 +85,7 @@ export default function BuscadorProducto({ onAgregar }) {
       )}
 
       {!buscando && query.length >= 2 && resultados.length === 0 && (
-        <p className="text-xs text-slate-500 px-1">Sin resultados para "{query}"</p>
+        <p className="text-xs text-slate-400 px-1">Sin resultados para "{query}"</p>
       )}
     </div>
   )

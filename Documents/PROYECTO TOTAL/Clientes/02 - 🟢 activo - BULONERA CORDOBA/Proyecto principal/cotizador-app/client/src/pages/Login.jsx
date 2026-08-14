@@ -81,7 +81,7 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-[11px] text-slate-500 mt-5">Panel interno</p>
+        <p className="text-center text-[11px] text-slate-400 mt-5">Panel interno</p>
       </div>
     </div>
   )

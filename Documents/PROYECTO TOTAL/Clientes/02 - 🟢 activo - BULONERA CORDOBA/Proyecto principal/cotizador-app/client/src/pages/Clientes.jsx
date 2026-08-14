@@ -15,7 +15,7 @@ const VACIO = { nombre: '', razonSocial: '', cuit: '', telefono: '', email: '', 
 
 function PedidosCliente({ clienteId, pedidos }) {
   const propios = pedidos.filter(p => p.clienteId === clienteId)
-  if (propios.length === 0) return <p className="text-xs text-slate-500 py-2 italic">Sin pedidos todavía.</p>
+  if (propios.length === 0) return <p className="text-xs text-slate-400 py-2 italic">Sin pedidos todavía.</p>
   return (
     <div className="divide-y divide-white/5">
       {propios.map(p => (
@@ -23,15 +23,15 @@ function PedidosCliente({ clienteId, pedidos }) {
           <div>
             <p className="text-sm font-medium text-slate-200">
               {new Date(p.fechaCreacion).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
-              <span className="ml-2 text-xs text-slate-500">
+              <span className="ml-2 text-xs text-slate-400">
                 {p.subpedidos.reduce((s, sub) => s + sub.items.length, 0)} ítem{p.subpedidos.length !== 1 ? 's' : ''}
               </span>
-              <span className="ml-2 text-xs text-slate-500 capitalize">· {p.estado.replace(/_/g, ' ')}</span>
+              <span className="ml-2 text-xs text-slate-400 capitalize">· {p.estado.replace(/_/g, ' ')}</span>
             </p>
           </div>
           <div className="text-right ml-4 shrink-0">
             <p className="text-sm font-bold text-emerald-400">${p.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</p>
-            {p.descuento > 0 && <p className="text-xs text-slate-500">{p.descuento}% dto.</p>}
+            {p.descuento > 0 && <p className="text-xs text-slate-400">{p.descuento}% dto.</p>}
           </div>
         </div>
       ))}
@@ -103,7 +103,7 @@ export default function Clientes() {
     <div>
       <label className="text-xs font-medium text-slate-400">{label}</label>
       <input value={form[key] || ''} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-        className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" {...props} />
+        className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]" {...props} />
     </div>
   )
 
@@ -112,7 +112,7 @@ export default function Clientes() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-100">Clientes</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{clientes.length} empresas</p>
+          <p className="text-sm text-slate-400 mt-0.5">{clientes.length} empresas</p>
         </div>
         <button onClick={() => { setForm(VACIO); setEditandoId(null); setMostrarForm(true) }}
           className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg text-sm transition">
@@ -146,7 +146,7 @@ export default function Clientes() {
             <div>
               <label className="text-xs font-medium text-slate-400">Tipo de descuento</label>
               <select value={form.tipoDescuento} onChange={e => setForm(f => ({ ...f, tipoDescuento: e.target.value }))}
-                className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/5">
+                className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] bg-white/5">
                 {tipos.map(t => (
                   <option key={t.codigo} value={t.codigo}>
                     Tipo {t.codigo} — {t.nombre} ({t.porcentaje}%)
@@ -169,23 +169,23 @@ export default function Clientes() {
       {/* Filtros */}
       <div className="flex gap-2 flex-wrap">
         <input value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar nombre o ciudad..."
-          className="flex-1 min-w-48 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          className="flex-1 min-w-48 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]" />
         <select value={filtroProv} onChange={e => setFiltroProv(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          className="border rounded-lg px-3 py-2 text-sm bg-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]">
           <option value="">Todas las provincias</option>
           {provincias.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
         <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}
-          className="border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          className="border rounded-lg px-3 py-2 text-sm bg-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]">
           <option value="">Todos los tipos</option>
           {tipos.map(t => <option key={t.codigo} value={t.codigo}>Tipo {t.codigo} — {t.nombre}</option>)}
         </select>
         {(busqueda || filtroProv || filtroTipo) && (
           <button onClick={() => { setBusqueda(''); setFiltroProv(''); setFiltroTipo('') }}
-            className="text-xs text-slate-500 hover:text-slate-300 px-2">× Limpiar</button>
+            className="text-xs text-slate-400 hover:text-slate-300 px-2">× Limpiar</button>
         )}
       </div>
-      <p className="text-xs text-slate-500">{cargando ? 'Cargando...' : `${filtrados.length} resultado${filtrados.length !== 1 ? 's' : ''}`}</p>
+      <p className="text-xs text-slate-400">{cargando ? 'Cargando...' : `${filtrados.length} resultado${filtrados.length !== 1 ? 's' : ''}`}</p>
 
       {/* Lista */}
       <div className="space-y-2">
@@ -199,7 +199,7 @@ export default function Clientes() {
                   <span className="text-slate-300 text-sm">{abierto ? '▾' : '▸'}</span>
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-100 truncate">{c.nombre}</p>
-                    <p className="text-xs text-slate-500 truncate">{c.razonSocial || '—'} · {c.localidad}{c.provincia ? `, ${c.provincia}` : ''}</p>
+                    <p className="text-xs text-slate-400 truncate">{c.razonSocial || '—'} · {c.localidad}{c.provincia ? `, ${c.provincia}` : ''}</p>
                   </div>
                 </button>
 
@@ -221,10 +221,10 @@ export default function Clientes() {
                 <div className="border-t bg-white/5 px-4 py-3 grid grid-cols-2 gap-4">
                   <div className="space-y-1.5 text-sm">
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Datos</p>
-                    {c.cuit     && <p><span className="text-slate-500">CUIT:</span> {c.cuit}</p>}
-                    {c.telefono && <p><span className="text-slate-500">Tel:</span> {c.telefono}</p>}
-                    {c.email    && <p><span className="text-slate-500">Email:</span> <a href={`mailto:${c.email}`} className="text-sky-400">{c.email}</a></p>}
-                    <p><span className="text-slate-500">Descuento:</span> <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${COLORES[c.tipoDescuento]?.badge}`}>
+                    {c.cuit     && <p><span className="text-slate-400">CUIT:</span> {c.cuit}</p>}
+                    {c.telefono && <p><span className="text-slate-400">Tel:</span> {c.telefono}</p>}
+                    {c.email    && <p><span className="text-slate-400">Email:</span> <a href={`mailto:${c.email}`} className="text-sky-400">{c.email}</a></p>}
+                    <p><span className="text-slate-400">Descuento:</span> <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${COLORES[c.tipoDescuento]?.badge}`}>
                       Tipo {c.tipoDescuento} · {c.descuento}%
                     </span></p>
                   </div>

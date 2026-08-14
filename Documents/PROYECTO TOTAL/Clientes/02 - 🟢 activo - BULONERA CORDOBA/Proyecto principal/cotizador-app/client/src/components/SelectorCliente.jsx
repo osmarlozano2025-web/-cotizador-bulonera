@@ -37,7 +37,7 @@ export default function SelectorCliente({ value, onChange }) {
               <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${COLORES[value.tipoDescuento] || 'bg-white/10 text-slate-300'}`}>
                 Tipo {value.tipoDescuento} · {value.descuento}%
               </span>
-              {value.localidad && <span className="text-xs text-slate-500 ml-auto">{value.localidad}</span>}
+              {value.localidad && <span className="text-xs text-slate-400 ml-auto">{value.localidad}</span>}
             </div>
           ) : (
             <input
@@ -63,7 +63,7 @@ export default function SelectorCliente({ value, onChange }) {
                     <span className={`text-xs px-1.5 py-0.5 rounded font-semibold shrink-0 ${COLORES[c.tipoDescuento] || ''}`}>
                       Tipo {c.tipoDescuento} · {c.descuento}%
                     </span>
-                    <span className="text-xs text-slate-500 shrink-0">{c.localidad}</span>
+                    <span className="text-xs text-slate-400 shrink-0">{c.localidad}</span>
                   </button>
                 </li>
               ))}
@@ -72,7 +72,7 @@ export default function SelectorCliente({ value, onChange }) {
         </div>
 
         {value && (
-          <button onClick={limpiar} className="text-slate-500 hover:text-slate-300 text-xl leading-none">×</button>
+          <button onClick={limpiar} className="text-slate-400 hover:text-slate-300 text-xl leading-none">×</button>
         )}
       </div>
     </div>

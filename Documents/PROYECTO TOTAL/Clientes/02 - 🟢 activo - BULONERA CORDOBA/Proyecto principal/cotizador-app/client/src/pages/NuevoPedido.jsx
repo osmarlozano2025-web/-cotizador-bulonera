@@ -59,7 +59,7 @@ export default function NuevoPedido() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold text-slate-100">Nuevo pedido</h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-400">
             Se divide solo por familia, un depósito por cada una.
           </p>
         </div>
@@ -85,7 +85,7 @@ export default function NuevoPedido() {
       </div>
 
       {errorEnvio && (
-        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-300">
           {errorEnvio}
         </div>
       )}
@@ -95,7 +95,7 @@ export default function NuevoPedido() {
           <div className="flex items-center justify-between mb-2">
             <span className="etiqueta">Cliente</span>
             {faltaCliente && (
-              <span className="chip bg-amber-100 text-amber-800">Obligatorio</span>
+              <span className="chip bg-amber-500/20 text-amber-300">Obligatorio</span>
             )}
           </div>
           <SelectorCliente value={cliente} onChange={setCliente} />
@@ -105,7 +105,7 @@ export default function NuevoPedido() {
             </p>
           ) : (
             cliente.descuento > 0 && (
-              <p className="text-xs text-emerald-700 mt-1.5">
+              <p className="text-xs text-emerald-300 mt-1.5">
                 Descuento del cliente: {cliente.descuento}%
               </p>
             )
@@ -162,7 +162,7 @@ export default function NuevoPedido() {
             </button>
             <button
               onClick={() => setModo('manual')}
-              className="flex flex-col items-center gap-2 p-7 border-2 border-dashed border-white/10 rounded-2xl hover:border-[var(--cb-500)] hover:bg-sky-50/50 transition group"
+              className="flex flex-col items-center gap-2 p-7 border-2 border-dashed border-white/10 rounded-2xl hover:border-[var(--cb-500)] hover:bg-sky-500/10/50 transition group"
             >
               <span className="text-3xl">✏️</span>
               <span className="font-semibold text-slate-200 group-hover:text-[var(--cb-700)] text-sm">
