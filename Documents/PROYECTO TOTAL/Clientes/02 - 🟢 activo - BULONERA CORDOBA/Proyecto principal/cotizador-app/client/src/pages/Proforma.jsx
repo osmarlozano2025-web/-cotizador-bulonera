@@ -1,6 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { obtenerConfirmacion, FAMILIAS_LABEL } from '../utils/aprobaciones'
+import {
+  obtenerConfirmacion,
+  FAMILIAS_LABEL,
+  LABEL_CONDICION_PAGO,
+  cantidadAEntregar,
+  precioFinal,
+} from '../utils/aprobaciones'
+
+const money = (n) => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+/** "55% + 18%" a partir de los porcentajes guardados en el renglón. */
+function textoDescuentos(it) {
+  const partes = [it.descFamilia1, it.descFamilia2, it.descPago1, it.descPago2, it.descCliente]
+    .filter(p => p > 0)
+    .map(p => `${p}%`)
+  return partes.length ? partes.join(' + ') : '—'
+}
 
 export default function Proforma() {
   const { token } = useParams()
@@ -45,9 +61,11 @@ export default function Proforma() {
     )
   }
 
-  const items = pedido.subpedidos.flatMap(s => s.items)
-  const subtotalSinDescuento = items.reduce((s, i) => s + i.cantidad * (i.precioGranel || i.precio || 0), 0)
   const numeroProforma = pedido.id.slice(-8)
+  const totales = pedido.totales || {}
+  // El backend ya excluyó lo que no hay stock; acá sólo lo mostramos.
+  const hayDescuentos = (totales.ahorro || 0) > 0
+  const sinStock = (pedido.subpedidos || []).flatMap(s => s.items).filter(i => i.estado === 'sin_stock')
 
   return (
     <div className="min-h-screen bg-gray-100 print:bg-white">
@@ -88,6 +106,9 @@ export default function Proforma() {
             <p className="text-[11px] text-gray-400">
               Confirmada el {new Date(pedido.fechaConfirmacion).toLocaleDateString('es-AR')}
             </p>
+            <p className="text-[11px] text-gray-400">
+              Pago: {LABEL_CONDICION_PAGO[pedido.condicionPago] || 'Contado'}
+            </p>
           </div>
         </div>
 
@@ -109,62 +130,111 @@ export default function Proforma() {
         {/* Ítems */}
         <div>
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Detalle del pedido</p>
-          {pedido.subpedidos.map(sub => (
-            <div key={sub.familia} className="mb-2.5 last:mb-0">
-              <p className="text-[11px] font-semibold text-blue-800 mb-0.5">{FAMILIAS_LABEL[sub.familia] || sub.familia}</p>
-              <table className="w-full text-xs border-collapse leading-tight">
-                <thead>
-                  <tr className="border-b border-gray-300 text-[10px] text-gray-400">
-                    <th className="text-left py-0.5 font-semibold">Código</th>
-                    <th className="text-left py-0.5 font-semibold">Descripción</th>
-                    <th className="text-left py-0.5 font-semibold">Medida</th>
-                    <th className="text-right py-0.5 font-semibold">Cant.</th>
-                    <th className="text-right py-0.5 font-semibold">Precio</th>
-                    <th className="text-right py-0.5 font-semibold">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sub.items.map((it, i) => {
-                    const precio = it.precioGranel || it.precio || 0
-                    return (
-                      <tr key={i} className="border-b border-gray-100">
-                        <td className="py-0.5 text-gray-400 text-[10px]">{it.codigo || '—'}</td>
-                        <td className="py-0.5">{it.descripcion}</td>
-                        <td className="py-0.5 text-gray-400">{it.medida || '—'}</td>
-                        <td className="py-0.5 text-right">{it.cantidad}</td>
-                        <td className="py-0.5 text-right">${precio.toFixed(2)}</td>
-                        <td className="py-0.5 text-right font-medium">${(precio * it.cantidad).toFixed(2)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))}
+          {pedido.subpedidos.map(sub => {
+            const entregables = sub.items.filter(i => i.estado !== 'sin_stock')
+            if (!entregables.length) return null
+
+            return (
+              <div key={sub.familia} className="mb-2.5 last:mb-0">
+                <p className="text-[11px] font-semibold text-blue-800 mb-0.5">
+                  {FAMILIAS_LABEL[sub.familia] || sub.familia}
+                </p>
+                <table className="w-full text-xs border-collapse leading-tight">
+                  <thead>
+                    <tr className="border-b border-gray-300 text-[10px] text-gray-400">
+                      <th className="text-left py-0.5 font-semibold">Código</th>
+                      <th className="text-left py-0.5 font-semibold">Descripción</th>
+                      <th className="text-right py-0.5 font-semibold">Cant.</th>
+                      <th className="text-right py-0.5 font-semibold">P. Lista</th>
+                      <th className="text-right py-0.5 font-semibold">Dto.</th>
+                      <th className="text-right py-0.5 font-semibold">P. Neto</th>
+                      <th className="text-right py-0.5 font-semibold">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {entregables.map((it) => {
+                      const cant = cantidadAEntregar(it)
+                      const neto = precioFinal(it)
+                      const lista = it.precioLista || neto
+                      const parcial = it.cantidadConfirmada != null && it.cantidadConfirmada < it.cantidad
+                      const esReemplazo = it.estado === 'reemplazo'
+
+                      return (
+                        <tr key={it.id} className="border-b border-gray-100">
+                          <td className="py-0.5 text-gray-400 text-[10px]">{it.codigo || '—'}</td>
+                          <td className="py-0.5">
+                            {it.descripcion}
+                            {it.medida && <span className="text-gray-400"> ({it.medida})</span>}
+                            {esReemplazo && (
+                              <span className="ml-1 text-[9px] text-green-700 font-semibold">REEMPLAZO</span>
+                            )}
+                          </td>
+                          <td className="py-0.5 text-right">
+                            {cant}
+                            {parcial && (
+                              <span className="text-[9px] text-amber-600 block leading-none">
+                                de {it.cantidad}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-0.5 text-right text-gray-400">
+                            {lista > neto ? money(lista) : '—'}
+                          </td>
+                          <td className="py-0.5 text-right text-gray-500 text-[10px]">{textoDescuentos(it)}</td>
+                          <td className="py-0.5 text-right">{money(neto)}</td>
+                          <td className="py-0.5 text-right font-medium">{money(neto * cant)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          })}
         </div>
+
+        {/* Lo que el depósito no pudo entregar: se informa, no se cobra */}
+        {sinStock.length > 0 && (
+          <div className="border border-amber-200 bg-amber-50 rounded p-2">
+            <p className="text-[11px] font-semibold text-amber-800 mb-0.5">
+              Sin stock — no incluido en el total
+            </p>
+            <ul className="text-[11px] text-amber-700 space-y-0.5">
+              {sinStock.map(it => (
+                <li key={it.id}>
+                  {it.cantidad}× {it.descripcion}
+                  {it.medida && <span className="text-amber-600"> ({it.medida})</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Totales */}
         <div className="flex justify-end">
-          <div className="w-56 space-y-0.5 text-xs">
-            <div className="flex justify-between text-gray-500">
-              <span>Subtotal</span>
-              <span>${subtotalSinDescuento.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {pedido.descuento > 0 && (
-              <div className="flex justify-between text-gray-500">
-                <span>Descuento ({pedido.descuento}%)</span>
-                <span>-${(subtotalSinDescuento - pedido.total).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-              </div>
+          <div className="w-64 space-y-0.5 text-xs">
+            {hayDescuentos && (
+              <>
+                <div className="flex justify-between text-gray-500">
+                  <span>Subtotal a precio de lista</span>
+                  <span>{money(totales.subtotalLista)}</span>
+                </div>
+                <div className="flex justify-between text-gray-500">
+                  <span>Descuentos ({totales.descuentoEfectivo}%)</span>
+                  <span className="text-green-700">−{money(totales.ahorro)}</span>
+                </div>
+              </>
             )}
             <div className="flex justify-between text-base font-bold text-gray-800 border-t border-gray-200 pt-1">
               <span>Total</span>
-              <span className="text-green-700">${pedido.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+              <span className="text-green-700">{money(pedido.total)}</span>
             </div>
           </div>
         </div>
 
         <p className="text-[10px] text-gray-400 border-t border-gray-200 pt-2">
           Este documento es una proforma sin validez fiscal, sujeta a confirmación de stock y precios al momento de facturar.
+          Los descuentos se aplican en forma encadenada sobre el precio de lista.
           Córdoba Bulones — Ferretería Industrial.
         </p>
       </div>

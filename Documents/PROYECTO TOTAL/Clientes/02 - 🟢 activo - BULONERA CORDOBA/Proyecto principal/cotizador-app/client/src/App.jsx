@@ -13,6 +13,7 @@ import Personal from './pages/Personal'
 import Configuraciones from './pages/Configuraciones'
 import ConfirmarPedido from './pages/ConfirmarPedido'
 import Proforma from './pages/Proforma'
+import NotaDeposito from './pages/NotaDeposito'
 import Login from './pages/Login'
 
 function Layout({ children }) {
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/" element={<Pagina seccion="nuevo-pedido"><NuevoPedido /></Pagina>} />
         <Route path="/vista-previa" element={<Pagina seccion="nuevo-pedido"><VistaPrevia /></Pagina>} />
         <Route path="/aprobaciones" element={<Pagina seccion="aprobaciones"><Aprobaciones /></Pagina>} />
+        <Route path="/nota-deposito/:id" element={<Pagina seccion="aprobaciones"><NotaDeposito /></Pagina>} />
         <Route path="/cotizaciones" element={<Pagina seccion="cotizaciones"><Cotizaciones /></Pagina>} />
         <Route path="/clientes" element={<Pagina seccion="clientes"><Clientes /></Pagina>} />
         <Route path="/productos" element={<Pagina seccion="productos"><Productos /></Pagina>} />

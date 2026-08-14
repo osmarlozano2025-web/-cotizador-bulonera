@@ -44,7 +44,12 @@ export default function ConfirmarPedido() {
     )
   }
 
-  const items = pedido.subpedidos.flatMap(s => s.items)
+  const todos = pedido.subpedidos.flatMap(s => s.items)
+  // Al cliente sólo le mostramos lo que va a recibir. Lo que el depósito marcó
+  // sin stock se informa aparte y no entra en el total.
+  const items = todos.filter(i => i.estado !== 'sin_stock')
+  const sinStock = todos.filter(i => i.estado === 'sin_stock')
+  const totales = pedido.totales || {}
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
@@ -61,18 +66,60 @@ export default function ConfirmarPedido() {
           </div>
 
           <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
-            {items.map((it, i) => (
-              <div key={i} className="px-4 py-2.5 flex justify-between text-sm">
-                <span>{it.cantidad}× {it.descripcion} {it.medida && <span className="text-gray-400">({it.medida})</span>}</span>
-              </div>
-            ))}
+            {items.map((it) => {
+              const cant = it.cantidadConfirmada ?? it.cantidad
+              const parcial = it.cantidadConfirmada != null && it.cantidadConfirmada < it.cantidad
+              return (
+                <div key={it.id} className="px-4 py-2.5 flex justify-between text-sm gap-3">
+                  <span>
+                    {cant}× {it.descripcion} {it.medida && <span className="text-gray-400">({it.medida})</span>}
+                    {parcial && (
+                      <span className="text-xs text-amber-600 block">
+                        Se entregan {cant} de los {it.cantidad} pedidos
+                      </span>
+                    )}
+                    {it.estado === 'reemplazo' && (
+                      <span className="text-xs text-green-700 block">Reemplaza un producto sin stock</span>
+                    )}
+                  </span>
+                  <span className="text-gray-500 whitespace-nowrap">
+                    ${((it.precioNeto || it.precioGranel || 0) * cant).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )
+            })}
           </div>
 
-          <div className="px-4 py-3 border-t flex justify-between items-center">
-            {pedido.descuento > 0 && <span className="text-xs text-gray-400">Descuento {pedido.descuento}%</span>}
-            <span className="ml-auto text-lg font-bold text-gray-800">
-              Total: <span className="text-green-700">${pedido.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
-            </span>
+          {sinStock.length > 0 && (
+            <div className="px-4 py-2.5 bg-amber-50 border-t border-amber-200">
+              <p className="text-xs font-semibold text-amber-800 mb-1">Sin stock — no se cobra</p>
+              {sinStock.map(it => (
+                <p key={it.id} className="text-xs text-amber-700 line-through">
+                  {it.cantidad}× {it.descripcion}
+                </p>
+              ))}
+            </div>
+          )}
+
+          <div className="px-4 py-3 border-t space-y-1">
+            {totales.ahorro > 0 && (
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Precio de lista</span>
+                <span>${totales.subtotalLista.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {totales.ahorro > 0 && (
+              <div className="flex justify-between text-xs text-green-600">
+                <span>Descuentos ({totales.descuentoEfectivo}%)</span>
+                <span>−${totales.ahorro.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-xs text-gray-400">Total</span>
+              <span className="text-lg font-bold text-green-700">
+                ${pedido.total.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
           </div>
         </div>
 

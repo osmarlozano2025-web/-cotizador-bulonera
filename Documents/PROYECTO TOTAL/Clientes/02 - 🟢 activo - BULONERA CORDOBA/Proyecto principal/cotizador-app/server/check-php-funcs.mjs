@@ -18,6 +18,9 @@ const NATIVAS = new Set([
   'call_user_func','call_user_func_array','array_unique','array_search','array_fill','range','abs','ceil','floor',
   'getenv','putenv','hash_equals','strcasecmp','file','array_pad','curl_setopt_array','mb_strlen',
   'similar_text','levenshtein','array_splice','array_reverse','json_last_error','sprintf','vsprintf',
+  'is_dir','glob','basename','dirname','is_null','is_bool','is_float','is_int','array_flip','str_ends_with',
+  'array_combine','number_format','mb_strtoupper','ltrim','nl2br','htmlspecialchars','urlencode','rawurlencode',
+  'var_export','sys_get_temp_dir','file_put_contents','unlink','preg_quote','array_diff','array_intersect',
 ])
 
 /** Vacía strings y comentarios para no confundir SQL con llamadas a función. */

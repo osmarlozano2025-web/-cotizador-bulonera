@@ -9,7 +9,10 @@ check-elec.mjs
 check-fam.mjs
 check-perms.mjs
 setup-v002.mjs
-V002-BACKUP/README.md
+# patrones sin barra inicial: aplican en cualquier subdirectorio
+**/V002-BACKUP/README.md
+*.env.bak
+*.localdb.bak
 deploy.sh
 deploy_ftp.sh
 deploy_ssh.sh

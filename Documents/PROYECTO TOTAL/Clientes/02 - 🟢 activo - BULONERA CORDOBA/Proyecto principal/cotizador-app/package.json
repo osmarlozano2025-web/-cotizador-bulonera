@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "cd server && npm run dev",
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm run dev:api\" \"npm run dev:client\"",
+    "dev:api": "node server/dev-api.mjs",
     "dev:client": "cd client && npm run dev",
+    "dev:server-legacy": "cd server && npm run dev",
+    "migrate": "node server/dev-php.mjs api-php/migrate.php",
+    "test:precios": "node server/dev-php.mjs api-php/tests/precios-test.php",
     "build": "cd client && npm install && npm run build",
     "start": "NODE_ENV=production node server/index.js",
     "install:all": "cd server && npm install && cd ../client && npm install"

@@ -49,6 +49,28 @@ export default function Configuraciones() {
     }
   }
 
+  // Enciende o apaga el motor de descuentos por familia y condición de pago.
+  const cambiarMotor = async (cambios) => {
+    const actual = config.motor_descuentos || { activo: false, base: 'lista' }
+    setGuardando(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/configuraciones/motor_descuentos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ valor: { ...actual, ...cambios } }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar')
+      setExito('✅ Motor de descuentos actualizado')
+      setTimeout(() => setExito(null), 3000)
+      await cargarConfiguraciones()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   const cargarConfiguraciones = async () => {
     try {
       setCargando(true)
@@ -184,11 +206,68 @@ export default function Configuraciones() {
         </div>
       </section>
 
+      {/* MOTOR DE DESCUENTOS */}
+      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-amber-50 to-transparent px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">🔀 Motor de descuentos</h2>
+          <p className="text-xs text-gray-600 mt-1">
+            Decide si los descuentos de más abajo se aplican de verdad al precio, o si sólo quedan documentados.
+          </p>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="flex items-start justify-between gap-4 p-4 border border-gray-200 rounded-lg">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-gray-900">
+                {config.motor_descuentos?.activo ? 'Encendido' : 'Apagado'}
+              </h3>
+              <p className="text-xs text-gray-600 mt-1">
+                {config.motor_descuentos?.activo
+                  ? 'Los precios salen de aplicar, encadenados, el descuento de familia + el de condición de pago + el del cliente sobre el precio de lista.'
+                  : 'Los precios se calculan como siempre: precio de granel menos el descuento del cliente. Los porcentajes de abajo no afectan nada todavía.'}
+              </p>
+            </div>
+
+            <button
+              onClick={() => cambiarMotor({ activo: !config.motor_descuentos?.activo })}
+              disabled={guardando}
+              className={`shrink-0 text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50 ${
+                config.motor_descuentos?.activo
+                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                  : 'bg-amber-600 hover:bg-amber-700 text-white'
+              }`}
+            >
+              {config.motor_descuentos?.activo ? 'Apagar' : 'Encender'}
+            </button>
+          </div>
+
+          {!config.motor_descuentos?.activo && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-900 space-y-1.5">
+              <p className="font-semibold">Antes de encenderlo, tené en cuenta que cambian todos los precios.</p>
+              <p>
+                Los precios de granel cargados hoy ya traen descuentos aplicados que no coinciden con los
+                porcentajes de acá abajo: Bulonería trae 50%, Mechas 70,11%, y Tolsen y Electrodos ninguno.
+              </p>
+              <p>Si se enciende, tomando el precio de lista como base, los precios quedarían así:</p>
+              <ul className="pl-4 list-disc space-y-0.5">
+                <li>Bulonería: <strong>+50%</strong> respecto de hoy</li>
+                <li>Tolsen: <strong>−63,1%</strong> respecto de hoy</li>
+                <li>Mechas: <strong>+23,5%</strong> respecto de hoy</li>
+                <li>Electrodos: sin cambios</li>
+              </ul>
+              <p>Los pedidos ya emitidos no se tocan: cada uno guarda el desglose con el que se hizo.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* DESCUENTOS POR FAMILIA */}
       <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="bg-gradient-to-r from-blue-50 to-transparent px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">📦 Descuentos por Familia</h2>
-          <p className="text-xs text-gray-600 mt-1">Configura los descuentos aplicables a cada línea de productos</p>
+          <p className="text-xs text-gray-600 mt-1">
+            Se aplican encadenados: 55% + 18% da 63,1% de descuento, no 73%.
+          </p>
         </div>
 
         <div className="space-y-3 p-6">

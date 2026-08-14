@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import {
   listarAprobaciones, aprobarFamilia, marcarEnviado, confirmarItem, marcarSinStock,
   FAMILIAS_LABEL, linkConfirmacion, linkWhatsApp, linkGmail, linkOutlook,
+  obtenerLog, LABEL_CONDICION_PAGO,
 } from '../utils/aprobaciones'
 import { buscarProductos } from '../utils/productosApi'
 import { useAuth } from '../context/AuthContext'
@@ -123,9 +124,18 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
           <p className="text-xs text-gray-800">
             <span className="font-semibold">{item.cantidadConfirmada ?? item.cantidad}×</span>{' '}
             {item.descripcion}
+            {/* Trazabilidad: si se confirma menos de lo pedido, se ve acá */}
+            {item.cantidadConfirmada != null && item.cantidadConfirmada < item.cantidad && !sinStock && (
+              <span className="ml-1 text-[11px] text-amber-600 font-medium">
+                (se pidieron {item.cantidad})
+              </span>
+            )}
           </p>
           <p className="text-[11px] text-gray-400">
-            {item.codigo} {item.medida ? `· ${item.medida}` : ''} · {money(item.precioGranel)}
+            {item.codigo} {item.medida ? `· ${item.medida}` : ''} · {money(item.precioNeto || item.precioGranel)}
+            {item.precioLista > (item.precioNeto || item.precioGranel) && (
+              <span className="line-through ml-1">{money(item.precioLista)}</span>
+            )}
           </p>
         </div>
 
@@ -227,9 +237,57 @@ function EnviarCliente({ pedido, onEnviado }) {
   )
 }
 
+const ICONO_EVENTO = {
+  creado: '📝',
+  stock_confirmado: '✓',
+  sin_stock: '⚠',
+  deposito_aprobado: '📦',
+  cambio_estado: '→',
+  enviado_cliente: '✉',
+}
+
+/** Quién tocó qué y cuándo. Se carga sólo cuando se abre. */
+function Historial({ pedidoId }) {
+  const [eventos, setEventos] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    obtenerLog(pedidoId).then(setEventos).catch(e => setError(e.message))
+  }, [pedidoId])
+
+  if (error) return <p className="text-xs text-red-600">{error}</p>
+  if (!eventos) return <p className="text-xs text-gray-400">Cargando historial...</p>
+  if (!eventos.length) {
+    return (
+      <p className="text-xs text-gray-400">
+        Sin movimientos registrados. El historial se completa con lo que pase de ahora en adelante.
+      </p>
+    )
+  }
+
+  return (
+    <ol className="space-y-2 border-l-2 border-gray-200 pl-3">
+      {eventos.map(ev => (
+        <li key={ev.id} className="text-xs relative">
+          <span className="absolute -left-[19px] bg-white text-[10px]">
+            {ICONO_EVENTO[ev.evento] || '•'}
+          </span>
+          <p className="text-gray-700">{ev.detalle || ev.evento}</p>
+          <p className="text-[11px] text-gray-400">
+            {new Date(ev.fecha.replace(' ', 'T')).toLocaleString('es-AR')}
+            {ev.usuarioNombre && ` · ${ev.usuarioNombre}`}
+            {ev.estadoAnterior && ev.estadoNuevo && ` · ${ev.estadoAnterior} → ${ev.estadoNuevo}`}
+          </p>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId }) {
   const [aprobando, setAprobando] = useState(null)
   const [errorFamilia, setErrorFamilia] = useState({})
+  const [verHistorial, setVerHistorial] = useState(false)
 
   const aprobar = async (familia) => {
     setAprobando(familia)
@@ -246,14 +304,54 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
 
   return (
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-      <div className="px-4 py-3 border-b flex items-center justify-between">
-        <div>
-          <p className="font-semibold text-gray-800">{pedido.clienteNombre}</p>
+      <div className="px-4 py-3 border-b flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-800 flex items-center gap-2 flex-wrap">
+            {pedido.clienteNombre}
+            {pedido.tipoOrigen === 'directo' && (
+              <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5">
+                PEDIDO DIRECTO
+              </span>
+            )}
+          </p>
           <p className="text-xs text-gray-400">
             {new Date(pedido.fechaCreacion).toLocaleString('es-AR')} · {money(pedido.total)}
+            {' · '}Pago {LABEL_CONDICION_PAGO[pedido.condicionPago] || 'Contado'}
           </p>
+          {pedido.totales?.ahorro > 0 && (
+            <p className="text-[11px] text-green-600">
+              Lista {money(pedido.totales.subtotalLista)} · descuentos {pedido.totales.descuentoEfectivo}%
+              {pedido.totales.itemsSinStock > 0 && (
+                <span className="text-amber-600">
+                  {' · '}{pedido.totales.itemsSinStock} sin stock (no suma)
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            to={`/nota-deposito/${pedido.id}`}
+            className="text-xs font-semibold text-gray-600 border border-gray-300 hover:bg-gray-50 rounded px-2.5 py-1 transition"
+            title="Comprobante para el galpón, sin precios"
+          >
+            Nota de depósito
+          </Link>
+          <button
+            onClick={() => setVerHistorial(v => !v)}
+            className="text-xs font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 rounded px-2.5 py-1 transition"
+          >
+            {verHistorial ? 'Ocultar' : 'Historial'}
+          </button>
         </div>
       </div>
+
+      {verHistorial && (
+        <div className="px-4 py-3 bg-gray-50 border-b">
+          <Historial pedidoId={pedido.id} />
+        </div>
+      )}
 
       <div className="divide-y divide-gray-100">
         {pedido.subpedidos.map((sub) => {

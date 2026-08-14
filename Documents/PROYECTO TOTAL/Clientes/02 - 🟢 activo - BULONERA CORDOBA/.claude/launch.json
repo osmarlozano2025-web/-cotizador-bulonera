@@ -4,7 +4,10 @@
     {
       "name": "cotizador-app",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "cd /d \"Proyecto principal\\cotizador-app\" && npm run dev"],
+      "runtimeArgs": [
+        "/c",
+        "C:\\Users\\Nazareno Lozano\\Documents\\PROYECTO TOTAL\\Clientes\\02 - 🟢 activo - BULONERA CORDOBA\\Proyecto principal\\cotizador-app\\iniciar-dev.cmd"
+      ],
       "port": 5173
     }
   ]

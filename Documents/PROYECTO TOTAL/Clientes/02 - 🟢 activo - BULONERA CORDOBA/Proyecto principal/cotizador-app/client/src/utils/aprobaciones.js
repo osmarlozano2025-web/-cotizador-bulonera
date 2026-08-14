@@ -68,6 +68,31 @@ export const marcarSinStock = (id, itemId, { nota, reemplazo } = {}) =>
 
 export const obtenerConfiguraciones = () => req('/api/configuraciones')
 
+/** Historial de todo lo que le pasó a un pedido: quién, cuándo y qué. */
+export const obtenerLog = (id) => req(`/api/aprobaciones/${id}/log`)
+
+export const CONDICIONES_PAGO = [
+  { valor: 'contado', label: 'Contado' },
+  { valor: '30dias', label: '30 días' },
+  { valor: '60dias', label: '60 días' },
+]
+
+export const LABEL_CONDICION_PAGO = Object.fromEntries(
+  CONDICIONES_PAGO.map(c => [c.valor, c.label])
+)
+
+/** Sólo lo que realmente se entrega: lo marcado sin stock no cuenta. */
+export const itemsEntregables = (pedido) =>
+  (pedido?.subpedidos || []).flatMap(s => s.items).filter(i => i.estado !== 'sin_stock')
+
+/** Cantidad que se va a entregar, que puede ser menor a la pedida. */
+export const cantidadAEntregar = (item) =>
+  item.cantidadConfirmada ?? item.cantidad
+
+/** Precio unitario final del renglón, con todos los descuentos ya aplicados. */
+export const precioFinal = (item) =>
+  item.precioNeto || item.precioGranel || item.precio || 0
+
 export const marcarEnviado = (id) =>
   req(`/api/aprobaciones/${id}/marcar-enviado`, { method: 'POST' })
 

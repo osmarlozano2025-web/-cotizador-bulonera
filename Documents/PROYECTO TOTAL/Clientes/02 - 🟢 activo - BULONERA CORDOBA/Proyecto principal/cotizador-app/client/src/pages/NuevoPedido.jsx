@@ -4,7 +4,7 @@ import SelectorCliente from '../components/SelectorCliente'
 import SubidorFoto from '../components/SubidorFoto'
 import BuscadorProducto from '../components/BuscadorProducto'
 import TablaProductos from '../components/TablaProductos'
-import { crearAprobacion } from '../utils/aprobaciones'
+import { crearAprobacion, CONDICIONES_PAGO } from '../utils/aprobaciones'
 
 export default function NuevoPedido() {
   const navigate = useNavigate()
@@ -13,6 +13,9 @@ export default function NuevoPedido() {
   const [modo, setModo] = useState(null) // 'foto' | 'manual'
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState('')
+  const [condicionPago, setCondicionPago] = useState('contado')
+  // Un pedido directo no le pide confirmación al cliente: ya la dio.
+  const [pedidoDirecto, setPedidoDirecto] = useState(false)
 
   const agregarProducto = (producto) => {
     setItems(prev => {
@@ -30,7 +33,10 @@ export default function NuevoPedido() {
     setEnviando(true)
     setErrorEnvio('')
     try {
-      const aprobacion = await crearAprobacion({ items }, cliente)
+      const aprobacion = await crearAprobacion(
+        { items, condicionPago, tipoOrigen: pedidoDirecto ? 'directo' : 'cotizacion' },
+        cliente
+      )
       navigate('/aprobaciones', { state: { creado: aprobacion.id } })
     } catch (e) {
       setErrorEnvio(e.message)
@@ -63,9 +69,49 @@ export default function NuevoPedido() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border p-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Cliente</p>
-        <SelectorCliente value={cliente} onChange={setCliente} />
+      <div className="bg-white rounded-xl shadow-sm border p-4 space-y-4">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Cliente</p>
+          <SelectorCliente value={cliente} onChange={setCliente} />
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4 pt-1 border-t">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5 mt-3">
+              Condición de pago
+            </label>
+            <select
+              value={condicionPago}
+              onChange={e => setCondicionPago(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              {CONDICIONES_PAGO.map(c => (
+                <option key={c.valor} value={c.valor}>{c.label}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-gray-400 mt-1">Define el descuento por pago que se aplica.</p>
+          </div>
+
+          <div className="mt-3">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+              Tipo de pedido
+            </label>
+            <label className="flex items-start gap-2 cursor-pointer border rounded-lg px-3 py-2 hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={pedidoDirecto}
+                onChange={e => setPedidoDirecto(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span className="text-sm">
+                Pedido directo
+                <span className="block text-[11px] text-gray-400">
+                  El cliente ya lo confirmó: no se le manda link de confirmación.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
       </div>
 
       {!modo && (
