@@ -316,78 +316,55 @@ export default function Configuraciones() {
         </div>
       </section>
 
-      {/* DESCUENTOS POR PAGO */}
-      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-50 to-transparent px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">💳 Descuentos por Condición de Pago</h2>
-          <p className="text-xs text-gray-600 mt-1">Descuentos adicionales según forma de pago</p>
+      {/* CONDICIÓN DE PAGO */}
+      <section className="tarjeta overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200/80 bg-gradient-to-r from-violet-50 to-transparent">
+          <h2 className="text-lg font-semibold text-slate-900">💳 Condición de pago</h2>
+          <p className="text-xs text-slate-600 mt-1">
+            Puede descontar o aumentar. <strong>Negativo descuenta, positivo aumenta.</strong>
+          </p>
         </div>
 
-        <div className="space-y-3 p-6">
-          {config.descuentos_pago && Object.entries(config.descuentos_pago).map(([tipo, desc]) => (
-            <div key={tipo} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">
-                  {tipo === 'contado' ? '🏷️ Contado' : tipo === '30dias' ? '📅 30 días' : '📅 60 días'}
+        <div className="p-6 space-y-3">
+          {config.descuentos_pago && Object.entries(config.descuentos_pago).map(([tipo, valor]) => (
+            <div key={tipo} className="flex items-center justify-between gap-4 p-4 border border-slate-200 rounded-xl">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-slate-900">
+                  {tipo === 'contado' ? 'Contado' : tipo === '30dias' ? '30 días' : '60 días'}
                 </h3>
-
-                {editando === `descuento_pago_${tipo}` ? (
-                  <div className="flex gap-3 mt-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-600 block mb-1">Descuento 1 (%)</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={valores.desc_1 ?? 0}
-                        onChange={(e) => setValores({ ...valores, desc_1: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-600 block mb-1">Descuento 2 (%)</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={valores.desc_2 ?? 0}
-                        onChange={(e) => setValores({ ...valores, desc_2: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-600 mt-2">
-                    <span className="font-mono bg-gray-100 px-2 py-1 rounded">
-                      {desc?.desc_1 ?? 0}% + {desc?.desc_2 ?? 0}%
-                    </span>
-                  </p>
-                )}
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {valor === 0
+                    ? 'No modifica el precio'
+                    : valor < 0
+                      ? `${-valor}% de descuento`
+                      : `${valor}% de recargo`}
+                </p>
               </div>
 
-              {editando === `descuento_pago_${tipo}` ? (
-                <div className="flex gap-2 ml-4">
-                  <button
-                    onClick={handleGuardar}
-                    disabled={guardando}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50"
-                  >
-                    {guardando ? '⏳' : '✅'} Guardar
-                  </button>
-                  <button
-                    onClick={handleCancelar}
-                    disabled={guardando}
-                    className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded-lg transition disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleEditar(`descuento_pago_${tipo}`, desc || {})}
-                  className="ml-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition"
-                >
-                  ✏️ Editar
-                </button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={rangoMin}
+                  max={rangoMax}
+                  defaultValue={valor}
+                  onBlur={(e) => {
+                    const v = Math.max(rangoMin, Math.min(rangoMax, Number(e.target.value)))
+                    if (v !== valor) {
+                      guardarClave(`descuento_${tipo}`, { valor: v }, '✅ Condición de pago actualizada')
+                    }
+                  }}
+                  disabled={guardando}
+                  className={`tabular w-24 px-3 py-2 border rounded-xl text-sm text-right focus:outline-none focus:ring-2 disabled:opacity-50 ${
+                    valor < 0
+                      ? 'border-emerald-300 text-emerald-700 focus:ring-emerald-400'
+                      : valor > 0
+                        ? 'border-amber-300 text-amber-700 focus:ring-amber-400'
+                        : 'border-slate-300 focus:ring-[var(--cb-500)]'
+                  }`}
+                />
+                <span className="text-sm text-slate-400">%</span>
+              </div>
             </div>
           ))}
         </div>

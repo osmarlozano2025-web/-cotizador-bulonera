@@ -32,42 +32,66 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <form onSubmit={submit} className="bg-white border rounded-xl shadow-sm p-8 w-full max-w-sm space-y-4">
-        <div className="text-center mb-2">
-          <p className="text-xl font-bold text-blue-900">Córdoba Bulones</p>
-          <p className="text-xs text-gray-400">Panel interno</p>
+    <div
+      className="min-h-screen flex items-center justify-center px-4"
+      style={{
+        background:
+          'radial-gradient(1100px 600px at 15% -10%, var(--cb-700) 0%, transparent 55%), var(--cb-900)',
+      }}
+    >
+      <div className="w-full max-w-sm">
+        <div className="flex items-center gap-3 mb-6 justify-center">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white shadow-lg"
+            style={{ backgroundColor: 'var(--cb-600)' }}
+          >
+            CB
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-white leading-tight">Córdoba Bulones</p>
+            <p className="text-[11px] text-slate-400">Ferretería Industrial</p>
+          </div>
         </div>
 
-        <div>
-          <label className="text-xs font-medium text-gray-500">Usuario</label>
-          <input
-            value={usuario}
-            onChange={e => setUsuario(e.target.value)}
-            autoFocus
-            className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-500">Contraseña</label>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        {error && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={cargando}
-          className="w-full bg-blue-700 hover:bg-blue-800 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg text-sm transition"
+        <form
+          onSubmit={submit}
+          className="bg-white rounded-2xl shadow-2xl p-7 space-y-4 border border-white/10"
         >
-          {cargando ? 'Ingresando...' : 'Ingresar'}
-        </button>
-      </form>
+          <div>
+            <label className="etiqueta block mb-1.5">Usuario</label>
+            <input
+              value={usuario}
+              onChange={e => setUsuario(e.target.value)}
+              autoFocus
+              autoComplete="username"
+              className="campo"
+            />
+          </div>
+
+          <div>
+            <label className="etiqueta block mb-1.5">Contraseña</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="campo"
+            />
+          </div>
+
+          {error && (
+            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <button type="submit" disabled={cargando} className="btn-primario w-full py-2.5">
+            {cargando ? 'Ingresando…' : 'Ingresar'}
+          </button>
+        </form>
+
+        <p className="text-center text-[11px] text-slate-500 mt-5">Panel interno</p>
+      </div>
     </div>
   )
 }

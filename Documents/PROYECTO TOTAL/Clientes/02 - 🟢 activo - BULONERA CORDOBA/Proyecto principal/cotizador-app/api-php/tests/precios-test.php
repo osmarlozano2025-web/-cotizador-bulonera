@@ -37,6 +37,9 @@ verificar('+30 lo sube a 130%', 1300.0, aplicarAjuste(1000, 30));
 verificar('-50 lo deja a la mitad', 500.0, aplicarAjuste(1000, -50));
 verificar('-100 lo deja en cero', 0.0, aplicarAjuste(1000, -100));
 
+verificar('cadena: -50 y despues -20', 400.0, encadenarAjustes(1000, [-50, -20]));
+verificar('cadena mixta: -20 y despues +10', 880.0, encadenarAjustes(1000, [-20, 10]));
+
 echo "\n--- el tope de la familia manda\n";
 
 // Tope -30: se admite de -30 a 0, nada más.
@@ -72,16 +75,16 @@ $cfg = [
         'electrodos' => 0.0,
     ],
     'pago' => [
-        'contado' => ['desc_1' => 0, 'desc_2' => 0],
-        '30dias'  => ['desc_1' => 5, 'desc_2' => 0],
-        '60dias'  => ['desc_1' => 0, 'desc_2' => 0],
+        'contado' => 0.0,
+        '30dias'  => -5.0,
+        '60dias'  => 8.0,
     ],
 ];
 
-$item = ['familia' => 'tolsen', 'precioLista' => 2000, 'precioGranel' => 1000];
+$item = ['familia' => 'tolsen', 'precioGranel' => 1000];
 
 $d = calcularDesglose($item, $cfg, 'contado', 0, 0);
-verificar('sin nada: queda el precio de granel', 1000.0, $d['precioNeto']);
+verificar('sin nada: queda el precio del producto', 1000.0, $d['precioNeto']);
 verificar('y guarda el tope de la familia', -50.0, $d['topeFamilia']);
 
 $d = calcularDesglose($item, $cfg, 'contado', 0, -20);
@@ -91,27 +94,33 @@ $d = calcularDesglose($item, $cfg, 'contado', 10, -20);
 verificar('más 10% de descuento del cliente', 720.0, $d['precioNeto']);
 
 $d = calcularDesglose($item, $cfg, '30dias', 10, -20);
-verificar('más 5% por pago a 30 días', 684.0, $d['precioNeto']);
+verificar('más 5% de descuento por pago a 30 días', 684.0, $d['precioNeto']);
+
+$d = calcularDesglose($item, $cfg, '60dias', 0, 0);
+verificar('60 días AUMENTA un 8%', 1080.0, $d['precioNeto']);
+
+$d = calcularDesglose($item, $cfg, '60dias', 10, -20);
+verificar('aumento de pago sobre descuentos', 777.6, $d['precioNeto']);
 
 $d = calcularDesglose($item, $cfg, 'contado', 0, -70);
 verificar('un -70% se recorta al tope de -50%', 500.0, $d['precioNeto']);
 verificar('y el desglose lo deja asentado', -50.0, $d['descAjusteFamilia']);
 
-$d = calcularDesglose(['familia' => 'electrodos', 'precioLista' => 500, 'precioGranel' => 500], $cfg, 'contado', 0, -30);
+$d = calcularDesglose(['familia' => 'electrodos', 'precioGranel' => 500], $cfg, 'contado', 0, -30);
 verificar('Electrodos tiene tope 0: no admite descuento', 500.0, $d['precioNeto']);
 
-$d = calcularDesglose(['familia' => 'buloneria', 'precioLista' => 200, 'precioGranel' => 100], $cfg, 'contado', 0, -25);
+$d = calcularDesglose(['familia' => 'buloneria', 'precioGranel' => 100], $cfg, 'contado', 0, -25);
 verificar('Bulonería en su tope de -25%', 75.0, $d['precioNeto']);
 
 echo "\n--- bordes\n";
 
-$d = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 500], $cfg, 'contado', 0, 0);
-verificar('sin precioLista usa el de granel', 500.0, $d['precioLista']);
+$d = calcularDesglose(['familia' => 'tolsen', 'precio' => 500], $cfg, 'contado', 0, 0);
+verificar('acepta el campo precio a secas', 500.0, $d['precioNeto']);
 
-$d = calcularDesglose(['familia' => 'inventada', 'precioLista' => 1000, 'precioGranel' => 1000], $cfg, 'contado', 0, -30);
+$d = calcularDesglose(['familia' => 'inventada', 'precioGranel' => 1000], $cfg, 'contado', 0, -30);
 verificar('familia desconocida: tope 0, no descuenta', 1000.0, $d['precioNeto']);
 
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 0, 'precioGranel' => 0], $cfg, 'contado', 0, -20);
+$d = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 0], $cfg, 'contado', 0, -20);
 verificar('precio cero no rompe', 0.0, $d['precioNeto']);
 verificar('descuento efectivo de un precio cero es 0', 0.0, descuentoEfectivo($d));
 

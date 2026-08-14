@@ -11,17 +11,21 @@ import {
 const money = (n) => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 /**
- * "55% + 18%" a partir de los porcentajes guardados en el renglón.
- * El ajuste por familia usa el signo al revés: negativo descuenta.
+ * Todos los descuentos del renglón, en el orden en que se aplican:
+ * familia, cliente y condición de pago.
  */
 function textoDescuentos(it) {
-  const partes = [it.descFamilia1, it.descFamilia2, it.descPago1, it.descPago2, it.descCliente]
-    .filter(p => p > 0)
-    .map(p => `${p}%`)
+  const partes = []
 
   const ajuste = Number(it.descAjusteFamilia) || 0
   if (ajuste < 0) partes.push(`${-ajuste}%`)
-  else if (ajuste > 0) partes.push(`+${ajuste}% aum.`)
+  else if (ajuste > 0) partes.push(`+${ajuste}%`)
+
+  if (it.descCliente > 0) partes.push(`${it.descCliente}%`)
+
+  const pago = Number(it.descPago1) || 0
+  if (pago < 0) partes.push(`${-pago}%`)
+  else if (pago > 0) partes.push(`+${pago}%`)
 
   return partes.length ? partes.join(' + ') : '—'
 }
@@ -163,7 +167,7 @@ export default function Proforma() {
                       <th className="text-left py-0.5 font-semibold">Código</th>
                       <th className="text-left py-0.5 font-semibold">Descripción</th>
                       <th className="text-right py-0.5 font-semibold">Cant.</th>
-                      <th className="text-right py-0.5 font-semibold">P. Lista</th>
+                      <th className="text-right py-0.5 font-semibold">Precio</th>
                       <th className="text-right py-0.5 font-semibold">Dto.</th>
                       <th className="text-right py-0.5 font-semibold">P. Neto</th>
                       <th className="text-right py-0.5 font-semibold">Subtotal</th>
@@ -196,7 +200,7 @@ export default function Proforma() {
                             )}
                           </td>
                           <td className="py-0.5 text-right text-gray-400">
-                            {lista > neto ? money(lista) : '—'}
+                            {lista !== neto ? money(lista) : '—'}
                           </td>
                           <td className="py-0.5 text-right text-gray-500 text-[10px]">{textoDescuentos(it)}</td>
                           <td className="py-0.5 text-right">{money(neto)}</td>
@@ -232,7 +236,7 @@ export default function Proforma() {
         <div className="flex justify-end">
           <div className="w-64 space-y-0.5 text-xs">
             <div className="flex justify-between text-gray-500">
-              <span>Subtotal a precio de lista</span>
+              <span>Subtotal</span>
               <span>{money(totales.subtotalLista)}</span>
             </div>
 

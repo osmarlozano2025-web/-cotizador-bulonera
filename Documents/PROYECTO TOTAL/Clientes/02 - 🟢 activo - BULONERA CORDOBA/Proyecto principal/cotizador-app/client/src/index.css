@@ -2,6 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Azul de la marca, un acero industrial */
+  --cb-900: #0d1b2a;
+  --cb-800: #14263a;
+  --cb-700: #1b3a5c;
+  --cb-600: #24558a;
+  --cb-500: #2f6fb5;
+  --cb-100: #e7eff8;
+}
+
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-slate-100 text-slate-900 antialiased;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Los números se leen mejor alineados en columna */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Fuera las flechitas de los campos numéricos: las cantidades y los
+ * porcentajes se escriben con el teclado, no se suben de a uno.
+ */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ---------------------------------------------------------------- piezas */
+
+.tarjeta {
+  @apply bg-white rounded-2xl border border-slate-200/80 shadow-sm;
+}
+
+.tarjeta-titulo {
+  @apply px-5 py-3.5 border-b border-slate-200/80 flex items-center justify-between gap-3;
+}
+
+.etiqueta {
+  @apply text-[11px] font-semibold text-slate-500 uppercase tracking-wider;
+}
+
+.campo {
+  @apply w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white
+         focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] focus:border-transparent
+         disabled:bg-slate-100 disabled:text-slate-400 transition;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
+         px-4 py-2 text-sm transition disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+.btn-primario {
+  @apply btn text-white shadow-sm;
+  background-color: var(--cb-700);
+}
+.btn-primario:hover:not(:disabled) {
+  background-color: var(--cb-600);
+}
+
+.btn-suave {
+  @apply btn border border-slate-300 text-slate-700 bg-white hover:bg-slate-50;
+}
+
+.chip {
+  @apply inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full;
+}
+
+/* Barra lateral */
+.nav-item {
+  @apply flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition;
 }
