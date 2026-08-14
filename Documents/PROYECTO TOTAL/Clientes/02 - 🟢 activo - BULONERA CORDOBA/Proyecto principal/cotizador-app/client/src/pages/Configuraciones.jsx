@@ -71,6 +71,27 @@ export default function Configuraciones() {
     }
   }
 
+  // Guarda una clave de configuración con un valor JSON cualquiera.
+  const guardarClave = async (clave, valor, mensaje) => {
+    setGuardando(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/configuraciones/${clave}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ valor }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar')
+      setExito(mensaje || '✅ Guardado')
+      setTimeout(() => setExito(null), 3000)
+      await cargarConfiguraciones()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   const cargarConfiguraciones = async () => {
     try {
       setCargando(true)
@@ -203,6 +224,98 @@ export default function Configuraciones() {
               </select>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* AJUSTE POR FAMILIA */}
+      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-indigo-50 to-transparent px-6 py-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">🎚️ Ajuste por familia</h2>
+          <p className="text-xs text-gray-600 mt-1">
+            Se precarga al armar un pedido y el vendedor lo puede cambiar renglón por familia.
+            <strong className="ml-1">Negativo descuenta, positivo aumenta.</strong>
+          </p>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="flex items-end gap-4 flex-wrap">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                Mínimo permitido
+              </label>
+              <input
+                type="number"
+                step="1"
+                defaultValue={config.rango_descuento?.min ?? -50}
+                onBlur={(e) => {
+                  const min = Number(e.target.value)
+                  if (min !== (config.rango_descuento?.min ?? -50)) {
+                    guardarClave('rango_descuento', { min, max: config.rango_descuento?.max ?? 50 }, '✅ Rango actualizado')
+                  }
+                }}
+                disabled={guardando}
+                className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              />
+            </div>
+            <span className="pb-2.5 text-gray-400">a</span>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                Máximo permitido
+              </label>
+              <input
+                type="number"
+                step="1"
+                defaultValue={config.rango_descuento?.max ?? 50}
+                onBlur={(e) => {
+                  const max = Number(e.target.value)
+                  if (max !== (config.rango_descuento?.max ?? 50)) {
+                    guardarClave('rango_descuento', { min: config.rango_descuento?.min ?? -50, max }, '✅ Rango actualizado')
+                  }
+                }}
+                disabled={guardando}
+                className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              />
+            </div>
+            <p className="text-xs text-gray-400 pb-2.5">
+              Hoy: de {config.rango_descuento?.min ?? -50}% a {config.rango_descuento?.max ?? 50}%
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            {config.ajustes_familia && Object.entries(config.ajustes_familia).map(([familia, valor]) => (
+              <div key={familia} className="flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-lg">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 capitalize text-sm">{familia}</h3>
+                  <p className="text-xs text-gray-500">
+                    {valor === 0
+                      ? 'Sin ajuste'
+                      : valor < 0
+                        ? `${-valor}% de descuento`
+                        : `${valor}% de aumento`}
+                  </p>
+                </div>
+                <input
+                  type="number"
+                  step="0.5"
+                  min={config.rango_descuento?.min ?? -50}
+                  max={config.rango_descuento?.max ?? 50}
+                  defaultValue={valor}
+                  onBlur={(e) => {
+                    const v = Number(e.target.value)
+                    if (v !== valor) guardarClave(`ajuste_${familia}`, { valor: v }, '✅ Ajuste actualizado')
+                  }}
+                  disabled={guardando}
+                  className={`w-24 px-3 py-2 border rounded-lg text-sm text-right focus:outline-none focus:ring-2 disabled:opacity-50 ${
+                    valor < 0
+                      ? 'border-green-300 text-green-700 focus:ring-green-500'
+                      : valor > 0
+                        ? 'border-amber-300 text-amber-700 focus:ring-amber-500'
+                        : 'border-gray-300 focus:ring-indigo-500'
+                  }`}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

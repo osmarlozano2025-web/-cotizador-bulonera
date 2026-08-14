@@ -10,11 +10,19 @@ import {
 
 const money = (n) => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-/** "55% + 18%" a partir de los porcentajes guardados en el renglón. */
+/**
+ * "55% + 18%" a partir de los porcentajes guardados en el renglón.
+ * El ajuste por familia usa el signo al revés: negativo descuenta.
+ */
 function textoDescuentos(it) {
   const partes = [it.descFamilia1, it.descFamilia2, it.descPago1, it.descPago2, it.descCliente]
     .filter(p => p > 0)
     .map(p => `${p}%`)
+
+  const ajuste = Number(it.descAjusteFamilia) || 0
+  if (ajuste < 0) partes.push(`${-ajuste}%`)
+  else if (ajuste > 0) partes.push(`+${ajuste}% aum.`)
+
   return partes.length ? partes.join(' + ') : '—'
 }
 
@@ -136,8 +144,18 @@ export default function Proforma() {
 
             return (
               <div key={sub.familia} className="mb-2.5 last:mb-0">
-                <p className="text-[11px] font-semibold text-blue-800 mb-0.5">
-                  {FAMILIAS_LABEL[sub.familia] || sub.familia}
+                <p className="text-[11px] font-semibold text-blue-800 mb-0.5 flex items-center justify-between">
+                  <span>
+                    {FAMILIAS_LABEL[sub.familia] || sub.familia}
+                    {sub.descuentoFamilia !== 0 && (
+                      <span className={`ml-1.5 font-medium ${sub.descuentoFamilia < 0 ? 'text-green-700' : 'text-amber-700'}`}>
+                        ({sub.descuentoFamilia < 0
+                          ? `${-sub.descuentoFamilia}% de descuento`
+                          : `${sub.descuentoFamilia}% de aumento`})
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-gray-500 font-normal">{money(sub.subtotal)}</span>
                 </p>
                 <table className="w-full text-xs border-collapse leading-tight">
                   <thead>
@@ -213,17 +231,41 @@ export default function Proforma() {
         {/* Totales */}
         <div className="flex justify-end">
           <div className="w-64 space-y-0.5 text-xs">
+            <div className="flex justify-between text-gray-500">
+              <span>Subtotal a precio de lista</span>
+              <span>{money(totales.subtotalLista)}</span>
+            </div>
+
+            {/* Un renglón por familia que tenga ajuste cargado */}
+            {pedido.subpedidos.filter(s => s.descuentoFamilia !== 0).map(s => (
+              <div key={s.familia} className="flex justify-between text-gray-500">
+                <span>
+                  {FAMILIAS_LABEL[s.familia] || s.familia}{' '}
+                  <span className={s.descuentoFamilia < 0 ? 'text-green-700' : 'text-amber-700'}>
+                    {s.descuentoFamilia < 0 ? `−${-s.descuentoFamilia}%` : `+${s.descuentoFamilia}%`}
+                  </span>
+                </span>
+                <span>{money(s.subtotal)}</span>
+              </div>
+            ))}
+
+            <div className="flex justify-between text-gray-500">
+              <span>Condición de pago</span>
+              <span>{LABEL_CONDICION_PAGO[pedido.condicionPago] || 'Contado'}</span>
+            </div>
+
+            {pedido.descuento > 0 && (
+              <div className="flex justify-between text-gray-500">
+                <span>Descuento del cliente</span>
+                <span className="text-green-700">−{pedido.descuento}%</span>
+              </div>
+            )}
+
             {hayDescuentos && (
-              <>
-                <div className="flex justify-between text-gray-500">
-                  <span>Subtotal a precio de lista</span>
-                  <span>{money(totales.subtotalLista)}</span>
-                </div>
-                <div className="flex justify-between text-gray-500">
-                  <span>Descuentos ({totales.descuentoEfectivo}%)</span>
-                  <span className="text-green-700">−{money(totales.ahorro)}</span>
-                </div>
-              </>
+              <div className="flex justify-between text-gray-500 border-t border-gray-100 pt-0.5">
+                <span>Ahorro ({totales.descuentoEfectivo}%)</span>
+                <span className="text-green-700">−{money(totales.ahorro)}</span>
+              </div>
             )}
             <div className="flex justify-between text-base font-bold text-gray-800 border-t border-gray-200 pt-1">
               <span>Total</span>

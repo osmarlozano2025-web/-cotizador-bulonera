@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SelectorCliente from '../components/SelectorCliente'
 import SubidorFoto from '../components/SubidorFoto'
 import BuscadorProducto from '../components/BuscadorProducto'
 import TablaProductos from '../components/TablaProductos'
-import { crearAprobacion, CONDICIONES_PAGO } from '../utils/aprobaciones'
+import { crearAprobacion, CONDICIONES_PAGO, obtenerConfiguraciones } from '../utils/aprobaciones'
 
 export default function NuevoPedido() {
   const navigate = useNavigate()
@@ -16,6 +16,22 @@ export default function NuevoPedido() {
   const [condicionPago, setCondicionPago] = useState('contado')
   // Un pedido directo no le pide confirmación al cliente: ya la dio.
   const [pedidoDirecto, setPedidoDirecto] = useState(false)
+  const [config, setConfig] = useState(null)
+  // Ajuste por familia de este pedido. Negativo descuenta, positivo aumenta.
+  const [descuentosFamilia, setDescuentosFamilia] = useState({})
+
+  useEffect(() => {
+    obtenerConfiguraciones()
+      .then(c => {
+        setConfig(c)
+        // Se arranca con los valores base de Configuraciones.
+        setDescuentosFamilia({ ...(c.ajustes_familia || {}) })
+      })
+      .catch(() => {})
+  }, [])
+
+  const cambiarDescuentoFamilia = (familia, valor) =>
+    setDescuentosFamilia(prev => ({ ...prev, [familia]: valor }))
 
   const agregarProducto = (producto) => {
     setItems(prev => {
@@ -34,7 +50,12 @@ export default function NuevoPedido() {
     setErrorEnvio('')
     try {
       const aprobacion = await crearAprobacion(
-        { items, condicionPago, tipoOrigen: pedidoDirecto ? 'directo' : 'cotizacion' },
+        {
+          items,
+          condicionPago,
+          tipoOrigen: pedidoDirecto ? 'directo' : 'cotizacion',
+          descuentosFamilia,
+        },
         cliente
       )
       navigate('/aprobaciones', { state: { creado: aprobacion.id } })
@@ -163,7 +184,15 @@ export default function NuevoPedido() {
       {items.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border p-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Productos del pedido</p>
-          <TablaProductos items={items} descuento={cliente?.descuento || 0} onChange={setItems} />
+          <TablaProductos
+            items={items}
+            descuento={cliente?.descuento || 0}
+            onChange={setItems}
+            config={config}
+            condicionPago={condicionPago}
+            descuentosFamilia={descuentosFamilia}
+            onDescuentoFamilia={cambiarDescuentoFamilia}
+          />
         </div>
       )}
     </div>

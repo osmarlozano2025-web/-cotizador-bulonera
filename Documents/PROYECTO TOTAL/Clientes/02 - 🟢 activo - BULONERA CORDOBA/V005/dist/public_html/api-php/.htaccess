@@ -1,0 +1,4 @@
+# Bloquea el acceso web directo a archivos sensibles de esta carpeta
+<FilesMatch "^\.env|\.env\.example$">
+    Require all denied
+</FilesMatch>

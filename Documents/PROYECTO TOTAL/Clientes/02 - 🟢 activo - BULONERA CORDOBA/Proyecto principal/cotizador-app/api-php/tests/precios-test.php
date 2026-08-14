@@ -114,6 +114,45 @@ verificar('Tolsen a 30 días suma otro 5% encadenado', 350.55, $d['precioNeto'])
 $d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfg, '30dias', 10);
 verificar('más 10% de cliente Mayorista', 315.5, $d['precioNeto']);
 
+echo "\n--- ajuste por familia (negativo descuenta, positivo aumenta)\n";
+
+verificar('sin ajuste no toca el precio', 1000.0, aplicarAjuste(1000, 0));
+verificar('-15 deja el precio en 85%', 850.0, aplicarAjuste(1000, -15));
+verificar('+30 lo sube a 130%', 1300.0, aplicarAjuste(1000, 30));
+verificar('-50, el borde del rango', 500.0, aplicarAjuste(1000, -50));
+verificar('+50, el otro borde', 1500.0, aplicarAjuste(1000, 50));
+verificar('-100 dejaría el precio en cero', 0.0, aplicarAjuste(1000, -100));
+
+$rango = ['min' => -50, 'max' => 50];
+verificar('un -80 se recorta a -50', -50.0, ajusteValido(-80, $rango));
+verificar('un +90 se recorta a +50', 50.0, ajusteValido(90, $rango));
+verificar('un valor dentro del rango pasa igual', -15.0, ajusteValido(-15, $rango));
+
+$cfgAjuste = $cfg;
+$cfgAjuste['rango'] = $rango;
+$cfgAjuste['ajuste'] = ['tolsen' => -10];
+
+// Con el motor encendido: 1000 → 369 por la cadena, y encima el ajuste.
+$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfgAjuste, 'contado', 0, -20);
+verificar('el ajuste del pedido se aplica al final', 295.2, $d['precioNeto']);
+verificar('y queda guardado en el desglose', -20.0, $d['descAjusteFamilia']);
+
+$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfgAjuste, 'contado', 0, null);
+verificar('sin ajuste explícito usa el base de configuración', 332.1, $d['precioNeto']);
+
+$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfgAjuste, 'contado', 0, 25);
+verificar('un ajuste positivo encarece', 461.25, $d['precioNeto']);
+
+// Con el motor apagado el ajuste igual funciona: lo cargó una persona.
+$cfgApagadoAjuste = $cfgApagado;
+$cfgApagadoAjuste['rango'] = $rango;
+$cfgApagadoAjuste['ajuste'] = [];
+$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 800], $cfgApagadoAjuste, 'contado', 10, -25);
+verificar('motor apagado: 800 −10% cliente −25% ajuste', 540.0, $d['precioNeto']);
+
+$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 800], $cfgApagadoAjuste, 'contado', 0, 0);
+verificar('motor apagado y ajuste 0: precio de siempre', 800.0, $d['precioNeto']);
+
 echo "\n--- bordes\n";
 
 $d = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 500], $cfg, 'contado', 0);
