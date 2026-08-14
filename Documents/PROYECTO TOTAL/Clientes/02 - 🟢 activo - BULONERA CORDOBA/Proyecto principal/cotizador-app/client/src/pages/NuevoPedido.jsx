@@ -17,17 +17,12 @@ export default function NuevoPedido() {
   // Un pedido directo no le pide confirmación al cliente: ya la dio.
   const [pedidoDirecto, setPedidoDirecto] = useState(false)
   const [config, setConfig] = useState(null)
-  // Ajuste por familia de este pedido. Negativo descuenta, positivo aumenta.
+  // Descuento por familia de este pedido. Arranca en 0 y se puede mejorar
+  // hasta el tope que tenga cada familia en Configuraciones.
   const [descuentosFamilia, setDescuentosFamilia] = useState({})
 
   useEffect(() => {
-    obtenerConfiguraciones()
-      .then(c => {
-        setConfig(c)
-        // Se arranca con los valores base de Configuraciones.
-        setDescuentosFamilia({ ...(c.ajustes_familia || {}) })
-      })
-      .catch(() => {})
+    obtenerConfiguraciones().then(setConfig).catch(() => {})
   }, [])
 
   const cambiarDescuentoFamilia = (familia, valor) =>

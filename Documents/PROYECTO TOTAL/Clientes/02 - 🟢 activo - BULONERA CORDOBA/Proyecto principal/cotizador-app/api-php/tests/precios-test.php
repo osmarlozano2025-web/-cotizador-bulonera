@@ -1,8 +1,8 @@
 <?php
 /**
- * Tests del motor de descuentos. No toca la base.
+ * Tests del motor de precios. No toca la base.
  *
- *   php api-php/tests/precios-test.php
+ *   npm run test:precios
  */
 
 require_once __DIR__ . '/../lib/precios.php';
@@ -29,141 +29,94 @@ function verificar(string $caso, $esperado, $obtenido): void
     }
 }
 
-echo "\n--- encadenarDescuentos\n";
-
-verificar('sin descuentos deja el precio igual',
-    1000.0, encadenarDescuentos(1000, []));
-
-verificar('un 25% simple',
-    750.0, encadenarDescuentos(1000, [25]));
-
-// El caso central del requisito 4: 55% + 18% NO es 73%.
-verificar('55% + 18% encadenado da 369, no 270',
-    369.0, encadenarDescuentos(1000, [55, 18]));
-
-verificar('el orden no altera el resultado',
-    encadenarDescuentos(1000, [18, 55]), encadenarDescuentos(1000, [55, 18]));
-
-verificar('los porcentajes en cero se ignoran',
-    450.0, encadenarDescuentos(1000, [55, 0, 0]));
-
-verificar('un 100% deja el precio en cero',
-    0.0, encadenarDescuentos(1000, [100]));
-
-verificar('los negativos se ignoran, no suben el precio',
-    1000.0, encadenarDescuentos(1000, [-10]));
-
-verificar('cadena de cuatro tramos',
-    // 1000 → 450 → 369 → 350.55 → 333.02
-    333.02, encadenarDescuentos(1000, [55, 18, 5, 5]));
-
-echo "\n--- condicionPagoValida\n";
-
-verificar('acepta contado', 'contado', condicionPagoValida('contado'));
-verificar('acepta 30dias', '30dias', condicionPagoValida('30dias'));
-verificar('null cae en contado', 'contado', condicionPagoValida(null));
-verificar('un valor inventado cae en contado', 'contado', condicionPagoValida('90dias'));
-
-echo "\n--- calcularDesglose con el motor APAGADO\n";
-
-$cfgApagado = [
-    'activo' => false,
-    'base' => 'lista',
-    'familia' => ['tolsen' => ['desc_1' => 55, 'desc_2' => 18]],
-    'pago' => ['contado' => ['desc_1' => 0, 'desc_2' => 0]],
-];
-
-$item = ['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 800];
-$d = calcularDesglose($item, $cfgApagado, 'contado', 10);
-
-verificar('usa precioGranel como base', 800.0, $d['precioBase']);
-verificar('aplica sólo el descuento del cliente', 720.0, $d['precioNeto']);
-verificar('no aplica descuentos de familia', 0.0, $d['descFamilia1']);
-verificar('avisa que el motor está apagado', false, $d['motorActivo']);
-
-echo "\n--- calcularDesglose con el motor ENCENDIDO\n";
-
-$cfg = [
-    'activo' => true,
-    'base' => 'lista',
-    'familia' => [
-        'buloneria' => ['desc_1' => 25, 'desc_2' => 0],
-        'tolsen' => ['desc_1' => 55, 'desc_2' => 18],
-        'electrodos' => ['desc_1' => 0, 'desc_2' => 0],
-    ],
-    'pago' => [
-        'contado' => ['desc_1' => 0, 'desc_2' => 0],
-        '30dias' => ['desc_1' => 5, 'desc_2' => 0],
-    ],
-];
-
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfg, 'contado', 0);
-verificar('Tolsen contado sin cliente: 369', 369.0, $d['precioNeto']);
-verificar('usa precioLista como base', 1000.0, $d['precioBase']);
-verificar('descuento efectivo 63,1%', 63.1, descuentoEfectivo($d));
-
-$d = calcularDesglose(['familia' => 'buloneria', 'precioLista' => 1000, 'precioGranel' => 500], $cfg, 'contado', 0);
-verificar('Bulonería 25% sobre lista, ignora el granel', 750.0, $d['precioNeto']);
-
-$d = calcularDesglose(['familia' => 'electrodos', 'precioLista' => 1000, 'precioGranel' => 1000], $cfg, 'contado', 0);
-verificar('Electrodos es precio neto, sin descuento', 1000.0, $d['precioNeto']);
-
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfg, '30dias', 0);
-verificar('Tolsen a 30 días suma otro 5% encadenado', 350.55, $d['precioNeto']);
-
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfg, '30dias', 10);
-verificar('más 10% de cliente Mayorista', 315.5, $d['precioNeto']);
-
-echo "\n--- ajuste por familia (negativo descuenta, positivo aumenta)\n";
+echo "\n--- ajuste: negativo descuenta, positivo aumenta\n";
 
 verificar('sin ajuste no toca el precio', 1000.0, aplicarAjuste(1000, 0));
 verificar('-15 deja el precio en 85%', 850.0, aplicarAjuste(1000, -15));
 verificar('+30 lo sube a 130%', 1300.0, aplicarAjuste(1000, 30));
-verificar('-50, el borde del rango', 500.0, aplicarAjuste(1000, -50));
-verificar('+50, el otro borde', 1500.0, aplicarAjuste(1000, 50));
-verificar('-100 dejaría el precio en cero', 0.0, aplicarAjuste(1000, -100));
+verificar('-50 lo deja a la mitad', 500.0, aplicarAjuste(1000, -50));
+verificar('-100 lo deja en cero', 0.0, aplicarAjuste(1000, -100));
+
+echo "\n--- el tope de la familia manda\n";
+
+// Tope -30: se admite de -30 a 0, nada más.
+verificar('dentro del tope pasa igual',      -20.0, ajusteDentroDelTope(-20, -30));
+verificar('justo en el tope pasa',           -30.0, ajusteDentroDelTope(-30, -30));
+verificar('pasarse del tope se recorta',     -30.0, ajusteDentroDelTope(-45, -30));
+verificar('un aumento con tope negativo no', 0.0,   ajusteDentroDelTope(10, -30));
+
+// Tope +20: se admite de 0 a +20.
+verificar('tope positivo admite el aumento',  15.0, ajusteDentroDelTope(15, 20));
+verificar('tope positivo recorta el exceso',  20.0, ajusteDentroDelTope(35, 20));
+verificar('tope positivo no admite descuento', 0.0, ajusteDentroDelTope(-10, 20));
+
+// Tope 0: no se puede mover nada.
+verificar('tope 0 no admite descuento', 0.0, ajusteDentroDelTope(-25, 0));
+verificar('tope 0 no admite aumento',   0.0, ajusteDentroDelTope(25, 0));
+
+echo "\n--- topes contra el rango global\n";
 
 $rango = ['min' => -50, 'max' => 50];
-verificar('un -80 se recorta a -50', -50.0, ajusteValido(-80, $rango));
-verificar('un +90 se recorta a +50', 50.0, ajusteValido(90, $rango));
-verificar('un valor dentro del rango pasa igual', -15.0, ajusteValido(-15, $rango));
+verificar('un tope de -80 se recorta a -50', -50.0, topeValido(-80, $rango));
+verificar('un tope de +90 se recorta a +50',  50.0, topeValido(90, $rango));
+verificar('un tope dentro del rango pasa',   -35.0, topeValido(-35, $rango));
 
-$cfgAjuste = $cfg;
-$cfgAjuste['rango'] = $rango;
-$cfgAjuste['ajuste'] = ['tolsen' => -10];
+echo "\n--- precio de un renglón\n";
 
-// Con el motor encendido: 1000 → 369 por la cadena, y encima el ajuste.
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfgAjuste, 'contado', 0, -20);
-verificar('el ajuste del pedido se aplica al final', 295.2, $d['precioNeto']);
-verificar('y queda guardado en el desglose', -20.0, $d['descAjusteFamilia']);
+$cfg = [
+    'rango' => $rango,
+    'topes' => [
+        'buloneria'  => -25.0,
+        'tolsen'     => -50.0,
+        'mechas'     => -50.0,
+        'electrodos' => 0.0,
+    ],
+    'pago' => [
+        'contado' => ['desc_1' => 0, 'desc_2' => 0],
+        '30dias'  => ['desc_1' => 5, 'desc_2' => 0],
+        '60dias'  => ['desc_1' => 0, 'desc_2' => 0],
+    ],
+];
 
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfgAjuste, 'contado', 0, null);
-verificar('sin ajuste explícito usa el base de configuración', 332.1, $d['precioNeto']);
+$item = ['familia' => 'tolsen', 'precioLista' => 2000, 'precioGranel' => 1000];
 
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 1000], $cfgAjuste, 'contado', 0, 25);
-verificar('un ajuste positivo encarece', 461.25, $d['precioNeto']);
+$d = calcularDesglose($item, $cfg, 'contado', 0, 0);
+verificar('sin nada: queda el precio de granel', 1000.0, $d['precioNeto']);
+verificar('y guarda el tope de la familia', -50.0, $d['topeFamilia']);
 
-// Con el motor apagado el ajuste igual funciona: lo cargó una persona.
-$cfgApagadoAjuste = $cfgApagado;
-$cfgApagadoAjuste['rango'] = $rango;
-$cfgApagadoAjuste['ajuste'] = [];
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 800], $cfgApagadoAjuste, 'contado', 10, -25);
-verificar('motor apagado: 800 −10% cliente −25% ajuste', 540.0, $d['precioNeto']);
+$d = calcularDesglose($item, $cfg, 'contado', 0, -20);
+verificar('con -20% de ajuste', 800.0, $d['precioNeto']);
 
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 1000, 'precioGranel' => 800], $cfgApagadoAjuste, 'contado', 0, 0);
-verificar('motor apagado y ajuste 0: precio de siempre', 800.0, $d['precioNeto']);
+$d = calcularDesglose($item, $cfg, 'contado', 10, -20);
+verificar('más 10% de descuento del cliente', 720.0, $d['precioNeto']);
+
+$d = calcularDesglose($item, $cfg, '30dias', 10, -20);
+verificar('más 5% por pago a 30 días', 684.0, $d['precioNeto']);
+
+$d = calcularDesglose($item, $cfg, 'contado', 0, -70);
+verificar('un -70% se recorta al tope de -50%', 500.0, $d['precioNeto']);
+verificar('y el desglose lo deja asentado', -50.0, $d['descAjusteFamilia']);
+
+$d = calcularDesglose(['familia' => 'electrodos', 'precioLista' => 500, 'precioGranel' => 500], $cfg, 'contado', 0, -30);
+verificar('Electrodos tiene tope 0: no admite descuento', 500.0, $d['precioNeto']);
+
+$d = calcularDesglose(['familia' => 'buloneria', 'precioLista' => 200, 'precioGranel' => 100], $cfg, 'contado', 0, -25);
+verificar('Bulonería en su tope de -25%', 75.0, $d['precioNeto']);
 
 echo "\n--- bordes\n";
 
-$d = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 500], $cfg, 'contado', 0);
-verificar('sin precioLista usa el de granel como lista', 500.0, $d['precioLista']);
+$d = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 500], $cfg, 'contado', 0, 0);
+verificar('sin precioLista usa el de granel', 500.0, $d['precioLista']);
 
-$d = calcularDesglose(['familia' => 'inventada', 'precioLista' => 1000], $cfg, 'contado', 0);
-verificar('familia desconocida no descuenta nada', 1000.0, $d['precioNeto']);
+$d = calcularDesglose(['familia' => 'inventada', 'precioLista' => 1000, 'precioGranel' => 1000], $cfg, 'contado', 0, -30);
+verificar('familia desconocida: tope 0, no descuenta', 1000.0, $d['precioNeto']);
 
-$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 0, 'precioGranel' => 0], $cfg, 'contado', 0);
+$d = calcularDesglose(['familia' => 'tolsen', 'precioLista' => 0, 'precioGranel' => 0], $cfg, 'contado', 0, -20);
 verificar('precio cero no rompe', 0.0, $d['precioNeto']);
 verificar('descuento efectivo de un precio cero es 0', 0.0, descuentoEfectivo($d));
+
+verificar('condición de pago inventada cae en contado', 'contado', condicionPagoValida('90dias'));
+verificar('null cae en contado', 'contado', condicionPagoValida(null));
 
 echo "\n";
 echo $fallados === 0

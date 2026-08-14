@@ -4,7 +4,7 @@
  * Sirve sólo para la vista previa mientras se arma el pedido. El precio que
  * vale es SIEMPRE el que calcula el backend al guardar; acá no se decide nada.
  *
- * Convención de signo del ajuste por familia:
+ * Convención de signo:
  *     negativo descuenta   (-15 deja el precio en 85%)
  *     positivo aumenta     (+30 lo deja en 130%)
  */
@@ -19,7 +19,7 @@ export function encadenarDescuentos(base, porcentajes) {
   }, base)
 }
 
-/** Ajuste por familia, con el signo al revés: negativo descuenta. */
+/** Ajuste con el signo del pedido: negativo descuenta. */
 export function aplicarAjuste(precio, ajuste) {
   const a = Number(ajuste) || 0
   if (a === 0) return precio
@@ -27,42 +27,39 @@ export function aplicarAjuste(precio, ajuste) {
   return factor <= 0 ? 0 : precio * factor
 }
 
-export function ajusteValido(ajuste, rango = { min: -50, max: 50 }) {
+/**
+ * Recorta un ajuste entre 0 y el tope de la familia.
+ * Tope -30 admite de -30 a 0. Tope +20 admite de 0 a +20. Tope 0 no admite nada.
+ */
+export function ajusteDentroDelTope(ajuste, tope) {
   const v = Number(ajuste) || 0
-  return Math.max(rango.min, Math.min(rango.max, v))
+  const t = Number(tope) || 0
+  return Math.max(Math.min(0, t), Math.min(Math.max(0, t), v))
+}
+
+/** Los dos extremos que admite un tope, para armar el input. */
+export function limitesDelTope(tope) {
+  const t = Number(tope) || 0
+  return { min: Math.min(0, t), max: Math.max(0, t) }
 }
 
 /**
  * Precio unitario final de un renglón.
  *
- * @param item          producto con precioLista / precioGranel y familia
- * @param config        respuesta de GET /api/configuraciones
- * @param condicionPago contado | 30dias | 60dias
- * @param descCliente   % del tipo de descuento del cliente
- * @param ajuste        ajuste de la familia en este pedido
+ *   granel → ajuste de familia → descuento por pago → descuento del cliente
  */
 export function precioUnitario(item, config, condicionPago, descCliente, ajuste) {
-  const lista = Number(item.precioLista) || Number(item.precioGranel) || Number(item.precio) || 0
-  const granel = Number(item.precioGranel) || Number(item.precio) || lista
-  const motor = config?.motor_descuentos
-
-  if (!motor?.activo) {
-    // Igual que el backend: precio de granel, descuento del cliente, y encima
-    // el ajuste que cargó el vendedor.
-    return aplicarAjuste(encadenarDescuentos(granel, [descCliente]), ajuste)
-  }
-
-  const familia = config?.descuentos_familia?.[item.familia] || { desc_1: 0, desc_2: 0 }
+  const granel = Number(item.precioGranel) || Number(item.precio) || Number(item.precioLista) || 0
+  const tope = config?.descuentos_familia?.[item.familia] ?? 0
   const pago = config?.descuentos_pago?.[condicionPago] || { desc_1: 0, desc_2: 0 }
-  const base = motor.base === 'granel' ? granel : lista
 
-  return aplicarAjuste(
-    encadenarDescuentos(base, [familia.desc_1, familia.desc_2, pago.desc_1, pago.desc_2, descCliente]),
-    ajuste
+  return encadenarDescuentos(
+    aplicarAjuste(granel, ajusteDentroDelTope(ajuste, tope)),
+    [pago.desc_1, pago.desc_2, descCliente]
   )
 }
 
-/** Precio de lista unitario, que es contra lo que se compara el ahorro. */
+/** Precio de lista unitario, contra el que se compara el ahorro. */
 export function precioLista(item) {
   return Number(item.precioLista) || Number(item.precioGranel) || Number(item.precio) || 0
 }
@@ -82,9 +79,16 @@ export function agruparPorFamilia(items) {
     .map(familia => ({ familia, filas: grupos[familia] }))
 }
 
-/** Texto para el usuario: "-15% dto." / "+30% aum." / "sin ajuste" */
+/** Texto para el usuario: "15% dto." / "+30% aum." / "sin ajuste" */
 export function textoAjuste(ajuste) {
   const a = Number(ajuste) || 0
   if (a === 0) return 'sin ajuste'
-  return a < 0 ? `${a}% dto.` : `+${a}% aum.`
+  return a < 0 ? `${-a}% dto.` : `+${a}% aum.`
+}
+
+/** Cómo se le explica el tope al vendedor. */
+export function textoTope(tope) {
+  const t = Number(tope) || 0
+  if (t === 0) return 'sin descuento permitido'
+  return t < 0 ? `hasta ${-t}% de descuento` : `hasta ${t}% de aumento`
 }

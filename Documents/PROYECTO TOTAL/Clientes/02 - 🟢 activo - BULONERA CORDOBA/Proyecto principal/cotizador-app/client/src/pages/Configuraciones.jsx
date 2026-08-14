@@ -49,28 +49,6 @@ export default function Configuraciones() {
     }
   }
 
-  // Enciende o apaga el motor de descuentos por familia y condición de pago.
-  const cambiarMotor = async (cambios) => {
-    const actual = config.motor_descuentos || { activo: false, base: 'lista' }
-    setGuardando(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/configuraciones/motor_descuentos', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ valor: { ...actual, ...cambios } }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar')
-      setExito('✅ Motor de descuentos actualizado')
-      setTimeout(() => setExito(null), 3000)
-      await cargarConfiguraciones()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setGuardando(false)
-    }
-  }
-
   // Guarda una clave de configuración con un valor JSON cualquiera.
   const guardarClave = async (clave, valor, mensaje) => {
     setGuardando(true)
@@ -164,6 +142,9 @@ export default function Configuraciones() {
     return <div className="p-4 text-red-600">Error al cargar configuraciones</div>
   }
 
+  const rangoMin = config.rango_descuento?.min ?? -50
+  const rangoMax = config.rango_descuento?.max ?? 50
+
   return (
     <div className="space-y-6 pb-8">
       <div>
@@ -227,150 +208,53 @@ export default function Configuraciones() {
         </div>
       </section>
 
-      {/* AJUSTE POR FAMILIA */}
+      {/* RANGO PERMITIDO */}
       <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-50 to-transparent px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">🎚️ Ajuste por familia</h2>
+          <h2 className="text-lg font-semibold text-gray-900">🎚️ Rango permitido</h2>
           <p className="text-xs text-gray-600 mt-1">
-            Se precarga al armar un pedido y el vendedor lo puede cambiar renglón por familia.
+            Los topes por familia no pueden salirse de acá.
             <strong className="ml-1">Negativo descuenta, positivo aumenta.</strong>
           </p>
         </div>
 
-        <div className="p-6 space-y-5">
-          <div className="flex items-end gap-4 flex-wrap">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                Mínimo permitido
-              </label>
-              <input
-                type="number"
-                step="1"
-                defaultValue={config.rango_descuento?.min ?? -50}
-                onBlur={(e) => {
-                  const min = Number(e.target.value)
-                  if (min !== (config.rango_descuento?.min ?? -50)) {
-                    guardarClave('rango_descuento', { min, max: config.rango_descuento?.max ?? 50 }, '✅ Rango actualizado')
-                  }
-                }}
-                disabled={guardando}
-                className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              />
-            </div>
-            <span className="pb-2.5 text-gray-400">a</span>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                Máximo permitido
-              </label>
-              <input
-                type="number"
-                step="1"
-                defaultValue={config.rango_descuento?.max ?? 50}
-                onBlur={(e) => {
-                  const max = Number(e.target.value)
-                  if (max !== (config.rango_descuento?.max ?? 50)) {
-                    guardarClave('rango_descuento', { min: config.rango_descuento?.min ?? -50, max }, '✅ Rango actualizado')
-                  }
-                }}
-                disabled={guardando}
-                className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              />
-            </div>
-            <p className="text-xs text-gray-400 pb-2.5">
-              Hoy: de {config.rango_descuento?.min ?? -50}% a {config.rango_descuento?.max ?? 50}%
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            {config.ajustes_familia && Object.entries(config.ajustes_familia).map(([familia, valor]) => (
-              <div key={familia} className="flex items-center justify-between gap-3 p-3 border border-gray-200 rounded-lg">
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-900 capitalize text-sm">{familia}</h3>
-                  <p className="text-xs text-gray-500">
-                    {valor === 0
-                      ? 'Sin ajuste'
-                      : valor < 0
-                        ? `${-valor}% de descuento`
-                        : `${valor}% de aumento`}
-                  </p>
-                </div>
-                <input
-                  type="number"
-                  step="0.5"
-                  min={config.rango_descuento?.min ?? -50}
-                  max={config.rango_descuento?.max ?? 50}
-                  defaultValue={valor}
-                  onBlur={(e) => {
-                    const v = Number(e.target.value)
-                    if (v !== valor) guardarClave(`ajuste_${familia}`, { valor: v }, '✅ Ajuste actualizado')
-                  }}
-                  disabled={guardando}
-                  className={`w-24 px-3 py-2 border rounded-lg text-sm text-right focus:outline-none focus:ring-2 disabled:opacity-50 ${
-                    valor < 0
-                      ? 'border-green-300 text-green-700 focus:ring-green-500'
-                      : valor > 0
-                        ? 'border-amber-300 text-amber-700 focus:ring-amber-500'
-                        : 'border-gray-300 focus:ring-indigo-500'
-                  }`}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* MOTOR DE DESCUENTOS */}
-      <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-amber-50 to-transparent px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">🔀 Motor de descuentos</h2>
-          <p className="text-xs text-gray-600 mt-1">
-            Decide si los descuentos de más abajo se aplican de verdad al precio, o si sólo quedan documentados.
-          </p>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div className="flex items-start justify-between gap-4 p-4 border border-gray-200 rounded-lg">
-            <div className="min-w-0">
-              <h3 className="font-semibold text-gray-900">
-                {config.motor_descuentos?.activo ? 'Encendido' : 'Apagado'}
-              </h3>
-              <p className="text-xs text-gray-600 mt-1">
-                {config.motor_descuentos?.activo
-                  ? 'Los precios salen de aplicar, encadenados, el descuento de familia + el de condición de pago + el del cliente sobre el precio de lista.'
-                  : 'Los precios se calculan como siempre: precio de granel menos el descuento del cliente. Los porcentajes de abajo no afectan nada todavía.'}
-              </p>
-            </div>
-
-            <button
-              onClick={() => cambiarMotor({ activo: !config.motor_descuentos?.activo })}
+        <div className="p-6 flex items-end gap-4 flex-wrap">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Mínimo
+            </label>
+            <input
+              type="number"
+              step="1"
+              defaultValue={rangoMin}
+              onBlur={(e) => {
+                const min = Number(e.target.value)
+                if (min !== rangoMin) guardarClave('rango_descuento', { min, max: rangoMax }, '✅ Rango actualizado')
+              }}
               disabled={guardando}
-              className={`shrink-0 text-sm font-semibold px-4 py-2 rounded-lg transition disabled:opacity-50 ${
-                config.motor_descuentos?.activo
-                  ? 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                  : 'bg-amber-600 hover:bg-amber-700 text-white'
-              }`}
-            >
-              {config.motor_descuentos?.activo ? 'Apagar' : 'Encender'}
-            </button>
+              className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            />
           </div>
-
-          {!config.motor_descuentos?.activo && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-900 space-y-1.5">
-              <p className="font-semibold">Antes de encenderlo, tené en cuenta que cambian todos los precios.</p>
-              <p>
-                Los precios de granel cargados hoy ya traen descuentos aplicados que no coinciden con los
-                porcentajes de acá abajo: Bulonería trae 50%, Mechas 70,11%, y Tolsen y Electrodos ninguno.
-              </p>
-              <p>Si se enciende, tomando el precio de lista como base, los precios quedarían así:</p>
-              <ul className="pl-4 list-disc space-y-0.5">
-                <li>Bulonería: <strong>+50%</strong> respecto de hoy</li>
-                <li>Tolsen: <strong>−63,1%</strong> respecto de hoy</li>
-                <li>Mechas: <strong>+23,5%</strong> respecto de hoy</li>
-                <li>Electrodos: sin cambios</li>
-              </ul>
-              <p>Los pedidos ya emitidos no se tocan: cada uno guarda el desglose con el que se hizo.</p>
-            </div>
-          )}
+          <span className="pb-2.5 text-gray-400">a</span>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Máximo
+            </label>
+            <input
+              type="number"
+              step="1"
+              defaultValue={rangoMax}
+              onBlur={(e) => {
+                const max = Number(e.target.value)
+                if (max !== rangoMax) guardarClave('rango_descuento', { min: rangoMin, max }, '✅ Rango actualizado')
+              }}
+              disabled={guardando}
+              className="w-28 px-3 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            />
+          </div>
+          <p className="text-xs text-gray-400 pb-2.5">
+            Hoy: de {rangoMin}% a {rangoMax}%
+          </p>
         </div>
       </section>
 
@@ -379,75 +263,56 @@ export default function Configuraciones() {
         <div className="bg-gradient-to-r from-blue-50 to-transparent px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">📦 Descuentos por Familia</h2>
           <p className="text-xs text-gray-600 mt-1">
-            Se aplican encadenados: 55% + 18% da 63,1% de descuento, no 73%.
+            Es el <strong>tope</strong> de cada familia: lo máximo que se puede dar en un pedido.
+            Negativo descuenta, positivo aumenta. En el pedido el campo arranca en 0 y se puede
+            mejorar hasta acá.
           </p>
         </div>
 
-        <div className="space-y-3 p-6">
-          {config.descuentos_familia && Object.entries(config.descuentos_familia).map(([familia, desc]) => (
-            <div key={familia} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-              <div className="flex-1">
+        <div className="p-6 space-y-3">
+          {config.descuentos_familia && Object.entries(config.descuentos_familia).map(([familia, limite]) => (
+            <div key={familia} className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg">
+              <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 capitalize">{familia}</h3>
-
-                {editando === `descuento_${familia}` ? (
-                  <div className="flex gap-3 mt-3">
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-600 block mb-1">Descuento 1 (%)</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={valores.desc_1 ?? 0}
-                        onChange={(e) => setValores({ ...valores, desc_1: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs text-gray-600 block mb-1">Descuento 2 (%)</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={valores.desc_2 ?? 0}
-                        onChange={(e) => setValores({ ...valores, desc_2: Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-600 mt-2">
-                    <span className="font-mono bg-gray-100 px-2 py-1 rounded">
-                      {desc?.desc_1 ?? 0}% + {desc?.desc_2 ?? 0}%
-                    </span>
-                  </p>
-                )}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {limite === 0
+                    ? 'No admite descuento: en el pedido queda fijo en 0'
+                    : limite < 0
+                      ? `En el pedido se puede cargar de ${limite}% a 0%`
+                      : `En el pedido se puede cargar de 0% a +${limite}%`}
+                </p>
               </div>
 
-              {editando === `descuento_${familia}` ? (
-                <div className="flex gap-2 ml-4">
-                  <button
-                    onClick={handleGuardar}
-                    disabled={guardando}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition disabled:opacity-50"
-                  >
-                    {guardando ? '⏳' : '✅'} Guardar
-                  </button>
-                  <button
-                    onClick={handleCancelar}
-                    disabled={guardando}
-                    className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-900 rounded-lg transition disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleEditar(`descuento_${familia}`, desc || {})}
-                  className="ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
-                >
-                  ✏️ Editar
-                </button>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  type="number"
+                  step="0.5"
+                  min={rangoMin}
+                  max={rangoMax}
+                  defaultValue={limite}
+                  onBlur={(e) => {
+                    const v = Math.max(rangoMin, Math.min(rangoMax, Number(e.target.value)))
+                    if (v !== limite) {
+                      guardarClave(`descuento_${familia}`, { limite: v }, '✅ Descuento actualizado')
+                    }
+                  }}
+                  disabled={guardando}
+                  className={`w-24 px-3 py-2 border rounded-lg text-sm text-right focus:outline-none focus:ring-2 disabled:opacity-50 ${
+                    limite < 0
+                      ? 'border-green-300 text-green-700 focus:ring-green-500'
+                      : limite > 0
+                        ? 'border-amber-300 text-amber-700 focus:ring-amber-500'
+                        : 'border-gray-300 focus:ring-blue-500'
+                  }`}
+                />
+                <span className="text-sm text-gray-400">%</span>
+              </div>
             </div>
           ))}
+
+          <p className="text-xs text-gray-500 pt-1">
+            Rango permitido: de {rangoMin}% a {rangoMax}%. Se edita más arriba.
+          </p>
         </div>
       </section>
 

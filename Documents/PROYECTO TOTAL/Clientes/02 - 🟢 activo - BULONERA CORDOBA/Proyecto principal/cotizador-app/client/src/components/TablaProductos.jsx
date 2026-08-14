@@ -1,5 +1,8 @@
 import { FAMILIAS_LABEL, DEPOSITO_NUMERO, LABEL_CONDICION_PAGO } from '../utils/aprobaciones'
-import { precioUnitario, precioLista, agruparPorFamilia, textoAjuste } from '../utils/precios'
+import {
+  precioUnitario, precioLista, agruparPorFamilia,
+  textoAjuste, textoTope, limitesDelTope, ajusteDentroDelTope,
+} from '../utils/precios'
 
 const COLOR_FAMILIA = {
   buloneria: 'bg-blue-100 text-blue-700',
@@ -12,37 +15,44 @@ const COLOR_FAMILIA = {
 const money = (n) => `$${(Number(n) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 /**
- * Control del ajuste de una familia. Negativo descuenta, positivo aumenta.
- * El rango sale de Configuraciones.
+ * Control del descuento de una familia dentro del pedido.
+ *
+ * Arranca en 0 y se puede mejorar hasta el tope que tiene esa familia en
+ * Configuraciones. Un tope de -25 admite de -25 a 0; un tope de 0 no admite nada.
  */
-function AjusteFamilia({ valor, rango, onChange }) {
-  const fueraDeRango = valor < rango.min || valor > rango.max
+function AjusteFamilia({ valor, tope, onChange }) {
+  const { min, max } = limitesDelTope(tope)
+  const bloqueado = tope === 0
 
   return (
-    <div className="flex items-center gap-1.5">
-      <label className="text-[11px] text-gray-400">Ajuste</label>
+    <div className="flex items-center gap-2">
+      <div className="text-right">
+        <label className="block text-[11px] text-gray-400 leading-none">Descuento</label>
+        <span className="text-[10px] text-gray-400">{textoTope(tope)}</span>
+      </div>
       <input
         type="number"
         step="0.5"
-        min={rango.min}
-        max={rango.max}
+        min={min}
+        max={max}
         value={valor}
+        disabled={bloqueado}
         onChange={e => {
           const v = e.target.value === '' ? 0 : parseFloat(e.target.value)
-          onChange(Math.max(rango.min, Math.min(rango.max, isNaN(v) ? 0 : v)))
+          onChange(ajusteDentroDelTope(isNaN(v) ? 0 : v, tope))
         }}
-        className={`w-20 border rounded px-2 py-1 text-right text-xs focus:outline-none focus:ring-1 ${
-          fueraDeRango
-            ? 'border-red-400 focus:ring-red-500'
-            : valor < 0
-              ? 'border-green-300 text-green-700 focus:ring-green-500'
-              : valor > 0
-                ? 'border-amber-300 text-amber-700 focus:ring-amber-500'
-                : 'focus:ring-blue-500'
+        className={`w-20 border rounded px-2 py-1 text-right text-xs focus:outline-none focus:ring-1 disabled:bg-gray-100 disabled:text-gray-400 ${
+          valor < 0
+            ? 'border-green-300 text-green-700 focus:ring-green-500'
+            : valor > 0
+              ? 'border-amber-300 text-amber-700 focus:ring-amber-500'
+              : 'focus:ring-blue-500'
         }`}
-        title={`Entre ${rango.min}% y ${rango.max}%. Negativo descuenta, positivo aumenta.`}
+        title={bloqueado
+          ? 'Esta familia no admite descuento'
+          : `Entre ${min}% y ${max}%. Negativo descuenta, positivo aumenta.`}
       />
-      <span className="text-[11px] text-gray-400 w-16">%</span>
+      <span className="text-[11px] text-gray-400">%</span>
     </div>
   )
 }
@@ -56,7 +66,8 @@ export default function TablaProductos({
   descuentosFamilia = {},
   onDescuentoFamilia,
 }) {
-  const rango = config?.rango_descuento || { min: -50, max: 50 }
+  // Tope de cada familia, definido en Configuraciones.
+  const topeDe = (familia) => config?.descuentos_familia?.[familia] ?? 0
 
   const actualizar = (idx, campo, valor) => {
     onChange(prev => {
@@ -68,8 +79,9 @@ export default function TablaProductos({
 
   const eliminar = (idx) => onChange(prev => prev.filter((_, i) => i !== idx))
 
+  // En el pedido arranca en 0 y se puede mejorar hasta el tope.
   const ajusteDe = (familia) =>
-    descuentosFamilia[familia] ?? config?.ajustes_familia?.[familia] ?? 0
+    ajusteDentroDelTope(descuentosFamilia[familia] ?? 0, topeDe(familia))
 
   const unitario = (item, familia) =>
     precioUnitario(item, config, condicionPago, descuento, ajusteDe(familia))
@@ -134,7 +146,7 @@ export default function TablaProductos({
                         {onDescuentoFamilia && (
                           <AjusteFamilia
                             valor={ajuste}
-                            rango={rango}
+                            tope={topeDe(familia)}
                             onChange={(v) => onDescuentoFamilia(familia, v)}
                           />
                         )}
