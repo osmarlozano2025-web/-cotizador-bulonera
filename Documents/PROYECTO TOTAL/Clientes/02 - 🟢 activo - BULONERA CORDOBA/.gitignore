@@ -1,0 +1,13 @@
+# El repositorio de GitHub es PÚBLICO.
+#
+# Estos documentos describen con detalle qué partes del sistema están sin
+# proteger. Publicarlos sería dar el mapa. Quedan sólo en esta máquina hasta
+# que se cierren los agujeros (etapa 0 del plan) o el repositorio pase a
+# privado, lo que ocurra primero.
+LEEME.md
+docs/plan-de-trabajo.html
+docs/estado-requerimientos.html
+
+# Paquete listo para subir a Hostinger: lleva el .env con las credenciales
+# de producción adentro. Nunca se versiona.
+PARA-SUBIR/

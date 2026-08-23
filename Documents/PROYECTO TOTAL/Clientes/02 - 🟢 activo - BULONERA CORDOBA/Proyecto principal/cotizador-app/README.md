@@ -151,12 +151,16 @@ bulonera.nazarenolozano.de (document root = public_html)
 ```
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_USER=u519024156_B_Cordoba
-DB_PASSWORD=Bulonera2026
-DB_NAME=u519024156_B_Cordoba
-JWT_SECRET=598db...
-OPENAI_API_KEY=sk-proj-...
+DB_USER=<usuario de la base>
+DB_PASSWORD=<contraseña de la base>
+DB_NAME=<nombre de la base>
+JWT_SECRET=<cadena larga y aleatoria>
+OPENAI_API_KEY=<clave de OpenAI>
 ```
+
+Este archivo **no se versiona**: está en `.gitignore` junto con `.env.hostinger`.
+Los valores reales se copian a mano en Hostinger, o se toman de `.env.hostinger`
+en la máquina de trabajo.
 
 ---
 
@@ -232,7 +236,7 @@ sequenceDiagram
 ## ⚙️ Mantenimiento Post-Despliegue
 
 ### Prioritario
-- [ ] **Cambiar contraseña admin** (`admin` → `cordoba2026`)
+- [ ] **Cambiar la contraseña del usuario `admin`**
   - Ir a Personal, editar usuario "admin", cambiar contraseña
 - [ ] **Desactivar MySQL remoto** en hPanel (después de desplegar)
   - Ya no lo necesita; PHP en el mismo servidor usa `127.0.0.1`
@@ -251,11 +255,17 @@ sequenceDiagram
 
 ## 📞 Credenciales
 
-| Elemento | Usuario | Contraseña | Notas |
-|:---------|:--------|:-----------|:------|
-| **Admin** | `admin` | `cordoba2026` | ⚠️ Cambiar antes de usar en prod |
-| **MySQL Hostinger** | `u519024156_B_Cordoba` | `Bulonera2026` | Restringir acceso remoto |
-| **OpenAI API** | - | `sk-proj-...` | En tabla `config` de BD |
+Las credenciales **no van en este repositorio**, que es público.
+
+| Elemento | Dónde está |
+|:---------|:-----------|
+| Base de datos | `api-php/.env.hostinger`, fuera del control de versiones |
+| Usuarios de la app | Tabla `personal`, se administran desde la pantalla Personal |
+| Clave de OpenAI | Tabla `config` de la base, se carga desde Integraciones |
+| FTP de Hostinger | Variable de entorno `FTP_PASSWORD` al correr el deploy |
+
+> Si alguna credencial llegó a quedar en un commit, cambiarla es lo único que
+> cierra el agujero: borrarla del archivo no la saca del historial.
 
 ---
 
