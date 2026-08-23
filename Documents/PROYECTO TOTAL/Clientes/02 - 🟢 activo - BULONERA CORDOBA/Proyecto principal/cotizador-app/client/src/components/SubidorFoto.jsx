@@ -113,9 +113,15 @@ export default function SubidorFoto({ onAgregar }) {
                     <button
                       onClick={() => agregar(item, idx, item.matchExacto)}
                       disabled={agregados.has(idx)}
-                      className="text-xs mt-1 text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1 disabled:opacity-50"
+                      className="text-xs mt-1 text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1 disabled:opacity-50 text-left"
                     >
-                      {agregados.has(idx) ? '✓ Agregado' : `+ Agregar match: ${item.matchExacto.descripcion}`}
+                      {agregados.has(idx) ? '✓ Agregado' : '+ Agregar match: '}
+                      {!agregados.has(idx) && (
+                        <>
+                          <span className="codigo">{item.matchExacto.codigo}</span>
+                          {' '}{item.matchExacto.descripcion}
+                        </>
+                      )}
                     </button>
                   ) : item.sugerencias.length > 0 ? (
                     <div className="mt-1 flex flex-wrap gap-1.5">
@@ -124,9 +130,11 @@ export default function SubidorFoto({ onAgregar }) {
                           key={i}
                           onClick={() => agregar(item, idx, s)}
                           disabled={agregados.has(idx)}
-                          className="text-xs text-sky-400 bg-sky-500/10 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100 disabled:opacity-50"
+                          className="text-xs text-sky-400 bg-sky-500/10 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100 disabled:opacity-50 text-left"
                         >
-                          {agregados.has(idx) ? '✓' : '+'} {s.descripcion}
+                          {agregados.has(idx) ? '✓' : '+'}{' '}
+                          <span className="codigo">{s.codigo}</span>{' '}
+                          {s.descripcion}
                         </button>
                       ))}
                     </div>

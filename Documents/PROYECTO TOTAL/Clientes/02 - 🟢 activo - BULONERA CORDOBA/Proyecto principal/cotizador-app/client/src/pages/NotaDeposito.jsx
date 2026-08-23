@@ -128,7 +128,19 @@ export default function NotaDeposito() {
               </p>
             )}
 
-            <div className="mt-10 grid grid-cols-2 gap-10 text-xs text-gray-500">
+            {/* Los bultos son del envío completo, no de este depósito: se imprimen
+                como referencia para quien carga el camión. Si todavía no se
+                contaron, queda la línea en blanco para anotarlos a mano. */}
+            <div className="mt-8 flex items-center gap-2 text-sm">
+              <span className="font-semibold text-gray-700">Bultos del envío:</span>
+              {pedido.bultos != null ? (
+                <span className="font-bold text-base">{pedido.bultos}</span>
+              ) : (
+                <span className="inline-block w-16 border-b border-gray-400"></span>
+              )}
+            </div>
+
+            <div className="mt-8 grid grid-cols-2 gap-10 text-xs text-gray-500">
               <div className="border-t border-gray-400 pt-1">Preparado por</div>
               <div className="border-t border-gray-400 pt-1">Fecha y hora</div>
             </div>

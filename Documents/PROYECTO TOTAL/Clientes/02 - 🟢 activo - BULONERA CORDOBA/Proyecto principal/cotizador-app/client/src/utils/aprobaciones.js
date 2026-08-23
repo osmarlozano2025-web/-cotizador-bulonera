@@ -55,6 +55,14 @@ export const confirmarItem = (id, itemId, { cantidad, nota } = {}) =>
     body: JSON.stringify({ cantidad, nota }),
   })
 
+/** En cuántos bultos se despacha el pedido. `null` borra el dato. */
+export const guardarBultos = (id, bultos) =>
+  req(`/api/aprobaciones/${id}/bultos`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bultos }),
+  })
+
 /**
  * El depósito marca que no hay stock. El item queda tachado.
  * Si se pasa `reemplazo`, ese producto se agrega como item nuevo enlazado al original.

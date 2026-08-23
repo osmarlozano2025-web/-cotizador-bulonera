@@ -138,6 +138,21 @@ input[type='checkbox'], input[type='radio'] {
   font-variant-numeric: tabular-nums;
 }
 
+/* Código de producto. El depósito lo lee para ubicar el artículo en la estantería,
+   así que va monoespaciado y con los dígitos alineados, no como texto corrido. */
+.codigo {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+/* Sobre papel (proforma, nota de depósito) el mismo código necesita más peso visual
+   porque compite con la descripción a igual tamaño. */
+.documento .codigo {
+  color: #0f172a;
+}
+
 /* Encabezado de sección con tinte de color, en versión oscura */
 .seccion-titulo {
   @apply px-6 py-4;

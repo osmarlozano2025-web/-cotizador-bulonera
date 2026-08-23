@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import {
   listarAprobaciones, aprobarFamilia, marcarEnviado, confirmarItem, marcarSinStock,
+  guardarBultos,
   FAMILIAS_LABEL, linkConfirmacion, linkWhatsApp, linkGmail, linkOutlook,
   obtenerLog, LABEL_CONDICION_PAGO,
 } from '../utils/aprobaciones'
@@ -77,6 +78,9 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
   const [buscando, setBuscando] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
+  // Arranca en lo pedido: el caso normal es confirmar todo, y así el depósito
+  // sólo toca el número cuando entrega de menos.
+  const [cantidad, setCantidad] = useState(String(item.cantidad))
 
   const sinStock = item.estado === 'sin_stock'
   const esReemplazo = item.estado === 'reemplazo'
@@ -97,7 +101,17 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
     }
   }
 
-  const confirmar = () => accion(() => confirmarItem(pedidoId, item.id))
+  const cantidadNum = parseFloat(cantidad)
+  const cantidadValida = !isNaN(cantidadNum) && cantidadNum > 0 && cantidadNum <= item.cantidad
+  const entregaParcial = cantidadValida && cantidadNum < item.cantidad
+
+  const confirmar = () => {
+    if (!cantidadValida) {
+      setError(`Poné un número entre 1 y ${item.cantidad}. Si no hay nada, usá "Sin stock".`)
+      return
+    }
+    return accion(() => confirmarItem(pedidoId, item.id, { cantidad: cantidadNum }))
+  }
 
   const sinStockCon = (producto) =>
     accion(() =>
@@ -158,12 +172,34 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
 
           {pendiente && puedeRevisar && !bloqueado && !buscando && (
             <>
+              <label className="flex items-center gap-1">
+                <span className="sr-only">Cantidad a enviar</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max={item.cantidad}
+                  value={cantidad}
+                  onChange={(e) => { setCantidad(e.target.value); setError(null) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && cantidadValida) confirmar() }}
+                  title={`Se pidieron ${item.cantidad}. Cambiá el número si mandás menos.`}
+                  className={`tabular w-14 rounded px-1.5 py-1 text-[11px] text-right font-semibold
+                    focus:outline-none focus:ring-2 transition ${
+                    !cantidadValida
+                      ? 'border border-rose-400/60 bg-rose-500/10 text-rose-300 focus:ring-rose-400'
+                      : entregaParcial
+                        ? 'border border-amber-400/60 bg-amber-500/10 text-amber-200 focus:ring-amber-400'
+                        : 'border border-white/15 bg-white/5 text-slate-100 focus:ring-emerald-400'
+                  }`}
+                />
+              </label>
               <button
                 onClick={confirmar}
                 disabled={guardando}
+                title={entregaParcial ? `Entrega parcial: ${cantidadNum} de ${item.cantidad}` : 'Hay stock de todo lo pedido'}
                 className="text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded px-2 py-1 transition"
               >
-                Hay stock
+                {entregaParcial ? `Enviar ${cantidadNum}` : 'Hay stock'}
               </button>
               <button
                 onClick={() => setBuscando(true)}
@@ -284,6 +320,68 @@ function Historial({ pedidoId }) {
   )
 }
 
+/**
+ * Cantidad de bultos del envío. La carga el depósito al terminar de preparar,
+ * y va en el pedido entero — no por depósito — porque el bulto es lo que sale
+ * en el camión hacia el cliente.
+ */
+function Bultos({ pedido, recargar }) {
+  const [valor, setValor] = useState(pedido.bultos == null ? '' : String(pedido.bultos))
+  const [guardando, setGuardando] = useState(false)
+  const [guardado, setGuardado] = useState(false)
+  const [error, setError] = useState(null)
+
+  const original = pedido.bultos == null ? '' : String(pedido.bultos)
+  const cambio = valor !== original
+
+  const guardar = async () => {
+    if (!cambio) return
+    setGuardando(true)
+    setError(null)
+    try {
+      await guardarBultos(pedido.id, valor === '' ? null : Number(valor))
+      setGuardado(true)
+      setTimeout(() => setGuardado(false), 2000)
+      recargar()
+    } catch (e) {
+      setError(e.message)
+      setValor(original)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <label className="flex items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+          Bultos
+        </span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min="0"
+          value={valor}
+          placeholder="—"
+          disabled={guardando}
+          onChange={(e) => { setValor(e.target.value); setError(null) }}
+          onBlur={guardar}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+          title="En cuántos bultos se despacha este pedido"
+          className="tabular w-16 rounded-lg border border-white/15 bg-white/5 px-2 py-1
+                     text-sm text-right font-semibold text-slate-100
+                     focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] disabled:opacity-50 transition"
+        />
+      </label>
+      {guardado && <span className="text-[11px] font-semibold text-emerald-400">Guardado</span>}
+      {cambio && !guardado && !guardando && (
+        <span className="text-[11px] text-slate-400">Enter para guardar</span>
+      )}
+      {error && <span className="text-[11px] text-rose-400">{error}</span>}
+    </div>
+  )
+}
+
 function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId }) {
   const [aprobando, setAprobando] = useState(null)
   const [errorFamilia, setErrorFamilia] = useState({})
@@ -330,7 +428,10 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          {puedeAprobar && pedido.estado !== 'confirmado' && (
+            <Bultos pedido={pedido} recargar={recargar} />
+          )}
           <Link
             to={`/nota-deposito/${pedido.id}`}
             className="text-xs font-semibold text-slate-300 border border-white/10 hover:bg-white/5 rounded px-2.5 py-1 transition"

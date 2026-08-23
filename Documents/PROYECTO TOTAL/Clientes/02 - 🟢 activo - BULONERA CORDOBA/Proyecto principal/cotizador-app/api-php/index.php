@@ -48,6 +48,7 @@ $rutas = [
     ['POST', '#^/aprobaciones/([^/]+)/items/([^/]+)/sin-stock$#', fn($id, $it) => rutaAprobacionesSinStock($id, $it)],
     ['POST', '#^/aprobaciones/([^/]+)/aprobar-familia$#', fn($id) => rutaAprobacionesAprobarFamilia($id)],
     ['POST', '#^/aprobaciones/([^/]+)/marcar-enviado$#', fn($id) => rutaAprobacionesMarcarEnviado($id)],
+    ['PUT',  '#^/aprobaciones/([^/]+)/bultos$#', fn($id) => rutaAprobacionesBultos($id)],
     ['GET', '#^/aprobaciones/([^/]+)/log$#', fn($id) => rutaAprobacionesLog($id)],
     ['GET', '#^/aprobaciones/([^/]+)$#', fn($id) => rutaAprobacionesObtener($id)],
 

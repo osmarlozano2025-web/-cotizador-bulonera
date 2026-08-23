@@ -72,7 +72,7 @@ export default function ConfirmarPedido() {
               return (
                 <div key={it.id} className="px-4 py-2.5 flex justify-between text-sm gap-3">
                   <span>
-                    {cant}× {it.descripcion} {it.medida && <span className="text-gray-400">({it.medida})</span>}
+                    {cant}× {it.codigo && <span className="codigo text-gray-500">{it.codigo}</span>} {it.descripcion} {it.medida && <span className="text-gray-400">({it.medida})</span>}
                     {parcial && (
                       <span className="text-xs text-amber-600 block">
                         Se entregan {cant} de los {it.cantidad} pedidos
@@ -95,7 +95,7 @@ export default function ConfirmarPedido() {
               <p className="text-xs font-semibold text-amber-800 mb-1">Sin stock — no se cobra</p>
               {sinStock.map(it => (
                 <p key={it.id} className="text-xs text-amber-700 line-through">
-                  {it.cantidad}× {it.descripcion}
+                  {it.cantidad}× {it.codigo && <span className="codigo">{it.codigo}</span>} {it.descripcion}
                 </p>
               ))}
             </div>

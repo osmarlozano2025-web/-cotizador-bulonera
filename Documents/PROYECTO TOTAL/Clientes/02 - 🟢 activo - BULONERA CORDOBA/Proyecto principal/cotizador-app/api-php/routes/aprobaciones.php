@@ -172,6 +172,10 @@ function ensamblarPedido(PDO $pdo, array $aprobacion, ?string $soloFamilia = nul
     $aprobacion['total'] = (float) $aprobacion['total'];
     $aprobacion['condicionPago'] = $aprobacion['condicionPago'] ?? 'contado';
     $aprobacion['tipoOrigen'] = $aprobacion['tipoOrigen'] ?? 'cotizacion';
+    // null = todavía no se contaron, distinto de 0 = no se despachó nada
+    $aprobacion['bultos'] = isset($aprobacion['bultos']) && $aprobacion['bultos'] !== null
+        ? (int) $aprobacion['bultos']
+        : null;
 
     // Totales de lo que efectivamente se entrega, para la proforma.
     $entregables = [];
@@ -634,6 +638,56 @@ function rutaAprobacionesMarcarEnviado(string $id): void
     $pedido = buscarPorId($pdo, $id);
     if (!$pedido) jsonError('No encontrado', 404);
     jsonSalida($pedido);
+}
+
+/**
+ * PUT /aprobaciones/:id/bultos — en cuántos bultos se despacha el pedido.
+ *
+ * Lo carga el depósito al terminar de preparar. Se puede corregir mientras el
+ * pedido no esté confirmado; después queda fijo porque el remito ya salió.
+ */
+function rutaAprobacionesBultos(string $id): void
+{
+    $auth = requireAuth();
+    requireRole($auth, ['Deposito', 'Administrador']);
+
+    $body = cuerpoJson();
+    $bruto = $body['bultos'] ?? null;
+
+    // Vaciar el campo es válido: se cuentan mal y se borra para volver a contar.
+    if ($bruto === null || $bruto === '') {
+        $bultos = null;
+    } else {
+        if (!is_numeric($bruto)) jsonError('Los bultos tienen que ser un número', 400);
+        $bultos = (int) $bruto;
+        if ($bultos < 0) jsonError('Los bultos no pueden ser negativos', 400);
+        if ($bultos > 9999) jsonError('Revisá el número de bultos, parece demasiado alto', 400);
+    }
+
+    $pdo = obtenerPDO();
+
+    $stmt = $pdo->prepare('SELECT estado, bultos FROM aprobaciones WHERE id = ?');
+    $stmt->execute([$id]);
+    $actual = $stmt->fetch();
+    if (!$actual) jsonError('No encontrado', 404);
+
+    if ($actual['estado'] === 'confirmado') {
+        jsonError('El pedido ya está confirmado, no se pueden cambiar los bultos', 409);
+    }
+
+    $pdo->prepare('UPDATE aprobaciones SET bultos = ? WHERE id = ?')->execute([$bultos, $id]);
+
+    if ((string) $actual['bultos'] !== (string) $bultos) {
+        registrarEvento($pdo, $id, 'bultos', [
+            'usuarioId' => $auth['id'],
+            'usuarioNombre' => nombreUsuario($pdo, $auth['id']),
+            'detalle' => $bultos === null
+                ? 'Se borró la cantidad de bultos'
+                : "Se registraron $bultos bulto" . ($bultos === 1 ? '' : 's'),
+        ]);
+    }
+
+    jsonSalida(buscarPorId($pdo, $id, familiaPermitida($pdo, $auth)));
 }
 
 /** GET /aprobaciones/:id/log — historial completo del pedido. */
