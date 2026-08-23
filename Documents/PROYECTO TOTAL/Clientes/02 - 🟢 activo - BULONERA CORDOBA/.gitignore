@@ -11,3 +11,14 @@ docs/estado-requerimientos.html
 # Paquete listo para subir a Hostinger: lleva el .env con las credenciales
 # de producción adentro. Nunca se versiona.
 PARA-SUBIR/
+
+# Intento paralelo de ERP (React + TypeScript + Supabase) del 06/08/2026, hecho
+# por otra persona y nunca terminado: su propio README lo describe como "shell
+# visual no funcional, sin lógica de negocio". Todo con datos de prueba.
+#
+# Se conserva como referencia de diseño para dos pendientes: el modelo de roles
+# y permisos, y las guías de despacho. No se versiona acá porque es trabajo
+# ajeno a este proyecto y el repositorio es público.
+referencia-erp-supabase/
+# Nombre anterior, por si el renombrado todavía no se pudo hacer:
+Proyecto sebas bulonera/
