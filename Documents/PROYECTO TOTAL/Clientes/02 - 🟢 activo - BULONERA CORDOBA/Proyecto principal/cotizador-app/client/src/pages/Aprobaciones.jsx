@@ -382,19 +382,63 @@ function Bultos({ pedido, recargar }) {
   )
 }
 
+/**
+ * Junta los subpedidos por depósito.
+ *
+ * Los subpedidos se siguen guardando por familia — la familia define el
+ * descuento y eso no cambia. Pero el despacho es por depósito, y un depósito
+ * agrupa varias familias: el general saca bulonería, mechas y electrodos del
+ * mismo galpón. Por eso el depósito se arma acá al mostrar, y no en la base.
+ */
+function agruparPorDeposito(subpedidos) {
+  const porNumero = new Map()
+
+  for (const sub of subpedidos) {
+    // Un subpedido sin depósito configurado no se pierde: cae en uno propio.
+    const clave = sub.depositoNumero ?? `sin-deposito-${sub.familia}`
+    if (!porNumero.has(clave)) {
+      porNumero.set(clave, {
+        clave,
+        numero: sub.depositoNumero,
+        nombre: sub.depositoNombre || 'Sin depósito asignado',
+        responsableId: sub.responsableId,
+        familias: [],
+      })
+    }
+    porNumero.get(clave).familias.push(sub)
+  }
+
+  return [...porNumero.values()]
+    .sort((a, b) => (a.numero ?? 99) - (b.numero ?? 99))
+    .map((dep) => ({
+      ...dep,
+      // El depósito está listo cuando todas sus familias lo están
+      aprobado: dep.familias.every((f) => f.aprobado),
+      pendientes: dep.familias.reduce((n, f) => n + (f.itemsPendientes ?? 0), 0),
+    }))
+}
+
 function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId }) {
   const [aprobando, setAprobando] = useState(null)
   const [errorFamilia, setErrorFamilia] = useState({})
   const [verHistorial, setVerHistorial] = useState(false)
 
-  const aprobar = async (familia) => {
-    setAprobando(familia)
-    setErrorFamilia((e) => ({ ...e, [familia]: null }))
+  /**
+   * Aprueba un depósito entero: marca de una todas las familias que despacha.
+   * Si una falla se corta ahí, para no dejar el depósito medio aprobado sin
+   * que nadie se entere.
+   */
+  const aprobar = async (dep) => {
+    setAprobando(dep.clave)
+    setErrorFamilia((e) => ({ ...e, [dep.clave]: null }))
     try {
-      await aprobarFamilia(pedido.id, familia)
+      for (const sub of dep.familias) {
+        if (!sub.aprobado) await aprobarFamilia(pedido.id, sub.familia)
+      }
       recargar()
     } catch (e) {
-      setErrorFamilia((prev) => ({ ...prev, [familia]: e.message }))
+      setErrorFamilia((prev) => ({ ...prev, [dep.clave]: e.message }))
+      recargar()
     } finally {
       setAprobando(null)
     }
@@ -455,63 +499,77 @@ function TarjetaPedido({ pedido, recargar, puedeAprobar, puedeEnviar, usuarioId 
       )}
 
       <div className="divide-y divide-white/5">
-        {pedido.subpedidos.map((sub) => {
-          // El depósito revisa su propio stock; el admin puede hacerlo por cualquiera.
-          const esMiDeposito = !sub.responsableId || sub.responsableId === usuarioId
+        {agruparPorDeposito(pedido.subpedidos).map((dep) => {
+          // El responsable revisa su depósito; el admin puede hacerlo por cualquiera.
+          const esMiDeposito = !dep.responsableId || dep.responsableId === usuarioId
           const puedeRevisar = puedeAprobar && esMiDeposito
-          const pendientes = sub.itemsPendientes ?? 0
+          // Cuando el depósito saca más de una familia conviene rotularlas,
+          // así el que prepara sabe de qué estantería sale cada renglón.
+          const variasFamilias = dep.familias.length > 1
 
           return (
-            <div key={sub.familia} className="px-4 py-3">
-              <div className="flex items-center justify-between mb-2">
-                <div>
+            <div key={dep.clave} className="px-4 py-3">
+              <div className="flex items-center justify-between mb-2 gap-3">
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    {sub.depositoNombre || `${FAMILIAS_LABEL[sub.familia] || sub.familia} · Depósito`}
+                    {dep.nombre}
                   </p>
-                  {pendientes > 0 && !sub.aprobado && (
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {dep.familias.map((f) => FAMILIAS_LABEL[f.familia] || f.familia).join(' · ')}
+                  </p>
+                  {dep.pendientes > 0 && !dep.aprobado && (
                     <p className="text-[11px] text-amber-400 mt-0.5">
-                      {pendientes} producto{pendientes === 1 ? '' : 's'} sin revisar
+                      {dep.pendientes} producto{dep.pendientes === 1 ? '' : 's'} sin revisar
                     </p>
                   )}
                 </div>
 
-                {sub.aprobado ? (
-                  <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5">
+                {dep.aprobado ? (
+                  <span className="shrink-0 text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5">
                     ✓ Aprobado
                   </span>
                 ) : puedeRevisar ? (
                   <button
-                    onClick={() => aprobar(sub.familia)}
-                    disabled={aprobando === sub.familia || pendientes > 0}
-                    title={pendientes > 0 ? 'Revisá el stock de cada producto primero' : ''}
-                    className="text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed rounded px-3 py-1 transition"
+                    onClick={() => aprobar(dep)}
+                    disabled={aprobando === dep.clave || dep.pendientes > 0}
+                    title={dep.pendientes > 0 ? 'Revisá el stock de cada producto primero' : ''}
+                    className="shrink-0 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed rounded px-3 py-1 transition"
                   >
-                    {aprobando === sub.familia ? 'Aprobando...' : 'Aprobar depósito'}
+                    {aprobando === dep.clave ? 'Aprobando...' : 'Aprobar depósito'}
                   </button>
                 ) : (
-                  <span className="text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-0.5">
+                  <span className="shrink-0 text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-0.5">
                     Esperando al depósito
                   </span>
                 )}
               </div>
 
-              {errorFamilia[sub.familia] && (
-                <p className="text-[11px] text-rose-400 mb-1">{errorFamilia[sub.familia]}</p>
+              {errorFamilia[dep.clave] && (
+                <p className="text-[11px] text-rose-400 mb-1">{errorFamilia[dep.clave]}</p>
               )}
 
-              <div className="divide-y divide-white/5">
-                {sub.items.map((it) => (
-                  <FilaItem
-                    key={it.id}
-                    item={it}
-                    pedidoId={pedido.id}
-                    familia={sub.familia}
-                    puedeRevisar={puedeRevisar}
-                    bloqueado={sub.aprobado}
-                    recargar={recargar}
-                  />
-                ))}
-              </div>
+              {dep.familias.map((sub) => (
+                <div key={sub.familia}>
+                  {variasFamilias && (
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-2 mb-0.5">
+                      {FAMILIAS_LABEL[sub.familia] || sub.familia}
+                    </p>
+                  )}
+                  <div className="divide-y divide-white/5">
+                    {sub.items.map((it) => (
+                      <FilaItem
+                        key={it.id}
+                        item={it}
+                        pedidoId={pedido.id}
+                        familia={sub.familia}
+                        puedeRevisar={puedeRevisar}
+                        bloqueado={sub.aprobado}
+                        recargar={recargar}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )
         })}

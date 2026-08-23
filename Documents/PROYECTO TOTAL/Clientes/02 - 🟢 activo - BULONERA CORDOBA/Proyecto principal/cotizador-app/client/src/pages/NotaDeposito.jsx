@@ -6,6 +6,33 @@ import { obtenerAprobacion, FAMILIAS_LABEL, cantidadAEntregar } from '../utils/a
  * Comprobante para el depósito: código, descripción, medida y cantidad.
  * Sin precios ni montos — va al galpón, no al cliente (requisito 10).
  */
+/**
+ * Una hoja por depósito. Los subpedidos vienen separados por familia, pero el
+ * galpón general despacha varias familias juntas y quien prepara necesita una
+ * sola hoja, no tres. Cada renglón conserva su familia para poder rotularlo.
+ */
+function agruparPorDeposito(subpedidos) {
+  const porNumero = new Map()
+
+  for (const sub of subpedidos) {
+    const clave = sub.depositoNumero ?? `sin-deposito-${sub.familia}`
+    if (!porNumero.has(clave)) {
+      porNumero.set(clave, {
+        clave,
+        numero: sub.depositoNumero,
+        nombre: sub.depositoNombre || FAMILIAS_LABEL[sub.familia] || sub.familia,
+        familias: [],
+        items: [],
+      })
+    }
+    const dep = porNumero.get(clave)
+    dep.familias.push(sub.familia)
+    dep.items.push(...sub.items)
+  }
+
+  return [...porNumero.values()].sort((a, b) => (a.numero ?? 99) - (b.numero ?? 99))
+}
+
 export default function NotaDeposito() {
   const { id } = useParams()
   const [pedido, setPedido] = useState(null)
@@ -49,7 +76,7 @@ export default function NotaDeposito() {
         </div>
       </div>
 
-      {pedido.subpedidos.map((sub, idx) => {
+      {agruparPorDeposito(pedido.subpedidos).map((sub, idx) => {
         // Lo marcado sin stock se imprime igual pero tachado: el depósito
         // necesita ver que ese renglón se revisó y no se entrega.
         const entregables = sub.items.filter(i => i.estado !== 'sin_stock')
@@ -57,7 +84,7 @@ export default function NotaDeposito() {
 
         return (
           <div
-            key={sub.familia}
+            key={sub.clave}
             className={`hoja max-w-3xl mx-auto bg-white shadow-sm my-6 p-8 print:my-0 print:shadow-none print:max-w-none ${idx > 0 ? 'salto' : ''}`}
           >
             <div className="flex items-start justify-between border-b-2 border-gray-800 pb-2 mb-4">
@@ -67,7 +94,7 @@ export default function NotaDeposito() {
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-gray-900">
-                  {sub.depositoNombre || FAMILIAS_LABEL[sub.familia] || sub.familia}
+                  {sub.nombre}
                 </p>
                 <p className="text-xs text-gray-500">Pedido N° {pedido.id.slice(-8)} · {fecha}</p>
               </div>

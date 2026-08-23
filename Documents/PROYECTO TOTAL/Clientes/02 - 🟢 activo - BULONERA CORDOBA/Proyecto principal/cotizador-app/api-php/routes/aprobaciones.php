@@ -60,46 +60,88 @@ function agruparPorFamilia(array $items): array
 }
 
 /**
- * Familia del depósito que tiene asignado a este usuario como responsable.
- * Devuelve null si no es responsable de ningún depósito.
+ * Los depósitos configurados, cada uno con las familias que despacha.
+ *
+ * Familia y depósito son cosas distintas: la familia es del producto y define
+ * su descuento (son cuatro), el depósito es de dónde sale la mercadería (son
+ * dos). Un depósito agrupa una o más familias, y eso se configura — mover una
+ * familia de depósito no requiere tocar ningún pedido ya emitido.
  */
-function familiaDelResponsable(PDO $pdo, string $usuarioId): ?string
+function depositosConfigurados(PDO $pdo): array
 {
-    $stmt = $pdo->query("SELECT valor FROM configuraciones WHERE tipo = 'deposito' AND activo = 1");
-    foreach ($stmt->fetchAll() as $row) {
-        $dep = json_decode($row['valor'], true);
-        if (($dep['responsableId'] ?? null) === $usuarioId) return $dep['familia'] ?? null;
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $stmt = $pdo->query("SELECT valor FROM configuraciones WHERE clave = 'depositos' AND activo = 1");
+    $fila = $stmt->fetch();
+    $lista = $fila ? json_decode($fila['valor'], true) : null;
+
+    // Si la configuración falta o quedó corrupta, un solo depósito con todo
+    // adentro: es preferible que se vea todo junto y no que desaparezcan items.
+    if (!is_array($lista) || !$lista) {
+        $lista = [[
+            'numero' => 1,
+            'nombre' => 'Depósito',
+            'familias' => FAMILIAS_VALIDAS,
+            'responsableId' => null,
+        ]];
+    }
+
+    return $cache = $lista;
+}
+
+/** El depósito al que le toca una familia, o null si ninguno la reclama. */
+function depositoDeFamilia(PDO $pdo, string $familia): ?array
+{
+    foreach (depositosConfigurados($pdo) as $dep) {
+        if (in_array($familia, $dep['familias'] ?? [], true)) return $dep;
     }
     return null;
 }
 
 /**
- * Un usuario de Depósito sólo puede ver/tocar la familia de su depósito.
- * Los administradores ven todo.
+ * Las familias que puede ver este usuario, o null si puede ver todas.
+ * Un responsable de depósito ve todas las familias de su depósito.
  */
-function familiaPermitida(PDO $pdo, array $auth): ?string
+function familiasDelResponsable(PDO $pdo, string $usuarioId): ?array
 {
-    if (($auth['rol'] ?? '') === 'Administrador') return null; // sin restricción
-    return familiaDelResponsable($pdo, $auth['id']);
+    foreach (depositosConfigurados($pdo) as $dep) {
+        if (($dep['responsableId'] ?? null) === $usuarioId) {
+            return $dep['familias'] ?? [];
+        }
+    }
+    return null;
 }
 
-function ensamblarPedido(PDO $pdo, array $aprobacion, ?string $soloFamilia = null): array
+/**
+ * Las familias que este usuario puede ver y tocar, o null si no tiene límite.
+ * Un responsable de depósito queda acotado a las familias que ese depósito
+ * despacha; los administradores ven todo.
+ */
+function familiaPermitida(PDO $pdo, array $auth): ?array
 {
-    if ($soloFamilia !== null) {
-        $stmt = $pdo->prepare('SELECT * FROM aprobaciones_subpedidos WHERE aprobacionId = ? AND familia = ? ORDER BY id');
-        $stmt->execute([$aprobacion['id'], $soloFamilia]);
+    if (($auth['rol'] ?? '') === 'Administrador') return null; // sin restricción
+    return familiasDelResponsable($pdo, $auth['id']);
+}
+
+function ensamblarPedido(PDO $pdo, array $aprobacion, ?array $soloFamilias = null): array
+{
+    // Un responsable de depósito ve sólo las familias que su depósito despacha.
+    if ($soloFamilias !== null) {
+        if (!$soloFamilias) {
+            $aprobacion['subpedidos'] = [];
+            $aprobacion['descuento'] = (float) $aprobacion['descuento'];
+            $aprobacion['total'] = (float) $aprobacion['total'];
+            return $aprobacion;
+        }
+        $huecos = implode(',', array_fill(0, count($soloFamilias), '?'));
+        $stmt = $pdo->prepare("SELECT * FROM aprobaciones_subpedidos WHERE aprobacionId = ? AND familia IN ($huecos) ORDER BY id");
+        $stmt->execute(array_merge([$aprobacion['id']], $soloFamilias));
     } else {
         $stmt = $pdo->prepare('SELECT * FROM aprobaciones_subpedidos WHERE aprobacionId = ? ORDER BY id');
         $stmt->execute([$aprobacion['id']]);
     }
     $subRows = $stmt->fetchAll();
-
-    // Nombre del depósito por familia, para mostrarlo en la proforma
-    $depositos = [];
-    foreach ($pdo->query("SELECT valor FROM configuraciones WHERE tipo = 'deposito'")->fetchAll() as $r) {
-        $d = json_decode($r['valor'], true);
-        if (!empty($d['familia'])) $depositos[$d['familia']] = $d;
-    }
 
     $subpedidos = [];
     foreach ($subRows as $sub) {
@@ -133,7 +175,7 @@ function ensamblarPedido(PDO $pdo, array $aprobacion, ?string $soloFamilia = nul
         ], $istmt->fetchAll());
 
         $pendientes = count(array_filter($items, fn($i) => $i['estado'] === 'pendiente'));
-        $dep = $depositos[$sub['familia']] ?? null;
+        $dep = depositoDeFamilia($pdo, $sub['familia']);
 
         // Lo que no tiene stock no suma: ni al subtotal ni al total del pedido.
         $entregables = array_filter($items, fn($i) => $i['estado'] !== 'sin_stock');
@@ -232,12 +274,12 @@ function recalcularTotal(PDO $pdo, string $aprobacionId): float
     return $total;
 }
 
-function buscarPorId(PDO $pdo, string $id, ?string $soloFamilia = null): ?array
+function buscarPorId(PDO $pdo, string $id, ?array $soloFamilias = null): ?array
 {
     $stmt = $pdo->prepare('SELECT * FROM aprobaciones WHERE id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
-    return $row ? ensamblarPedido($pdo, $row, $soloFamilia) : null;
+    return $row ? ensamblarPedido($pdo, $row, $soloFamilias) : null;
 }
 
 function buscarPorToken(PDO $pdo, string $token): ?array
@@ -345,7 +387,7 @@ function rutaAprobacionesListar(): void
 {
     $auth = requireAuth();
     $pdo = obtenerPDO();
-    $soloFamilia = familiaPermitida($pdo, $auth);
+    $soloFamilias = familiaPermitida($pdo, $auth);
 
     $estado = $_GET['estado'] ?? '';
     if ($estado !== '') {
@@ -355,10 +397,10 @@ function rutaAprobacionesListar(): void
         $stmt = $pdo->query('SELECT * FROM aprobaciones ORDER BY fechaCreacion DESC');
     }
 
-    $pedidos = array_map(fn($r) => ensamblarPedido($pdo, $r, $soloFamilia), $stmt->fetchAll());
+    $pedidos = array_map(fn($r) => ensamblarPedido($pdo, $r, $soloFamilias), $stmt->fetchAll());
 
     // Al responsable de un depósito no le mostramos pedidos que no lo involucran
-    if ($soloFamilia !== null) {
+    if ($soloFamilias !== null) {
         $pedidos = array_values(array_filter($pedidos, fn($p) => !empty($p['subpedidos'])));
     }
 
@@ -369,15 +411,15 @@ function rutaAprobacionesObtener(string $id): void
 {
     $auth = requireAuth();
     $pdo = obtenerPDO();
-    $soloFamilia = familiaPermitida($pdo, $auth);
+    $soloFamilias = familiaPermitida($pdo, $auth);
 
     $stmt = $pdo->prepare('SELECT * FROM aprobaciones WHERE id = ?');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     if (!$row) jsonError('No encontrado', 404);
 
-    $pedido = ensamblarPedido($pdo, $row, $soloFamilia);
-    if ($soloFamilia !== null && empty($pedido['subpedidos'])) {
+    $pedido = ensamblarPedido($pdo, $row, $soloFamilias);
+    if ($soloFamilias !== null && empty($pedido['subpedidos'])) {
         jsonError('Este pedido no tiene productos de tu depósito', 403);
     }
     jsonSalida($pedido);
@@ -396,8 +438,8 @@ function itemConPermiso(PDO $pdo, string $aprobacionId, string $itemId, array $a
     $item = $stmt->fetch();
     if (!$item) jsonError('Producto no encontrado en este pedido', 404);
 
-    $soloFamilia = familiaPermitida($pdo, $auth);
-    if ($soloFamilia !== null && $item['familia'] !== $soloFamilia) {
+    $soloFamilias = familiaPermitida($pdo, $auth);
+    if ($soloFamilias !== null && !in_array($item['familia'], $soloFamilias, true)) {
         jsonError('Ese producto no pertenece a tu depósito', 403);
     }
     if ((int) $item['aprobado'] === 1) {
@@ -527,8 +569,8 @@ function rutaAprobacionesAprobarFamilia(string $id): void
     $familia = $body['familia'] ?? '';
 
     $pdo = obtenerPDO();
-    $soloFamilia = familiaPermitida($pdo, $auth);
-    if ($soloFamilia !== null && $familia !== $soloFamilia) {
+    $soloFamilias = familiaPermitida($pdo, $auth);
+    if ($soloFamilias !== null && !in_array($familia, $soloFamilias, true)) {
         jsonError('Sólo podés aprobar los productos de tu depósito', 403);
     }
 
@@ -588,7 +630,7 @@ function rutaAprobacionesAprobarFamilia(string $id): void
         ]);
     }
 
-    jsonSalida(buscarPorId($pdo, $id, $soloFamilia));
+    jsonSalida(buscarPorId($pdo, $id, $soloFamilias));
 }
 
 function rutaAprobacionesConfirmarObtener(string $token): void

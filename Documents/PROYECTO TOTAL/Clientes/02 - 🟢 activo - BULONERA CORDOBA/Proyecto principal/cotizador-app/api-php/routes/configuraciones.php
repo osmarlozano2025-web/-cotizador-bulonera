@@ -42,15 +42,18 @@ function rutaConfiguracionesObtener() {
         $personal[$p['id']] = $p;
     }
 
+    // Los depósitos son una lista: cada uno agrupa las familias que despacha.
+    // Son dos (general y Tolsen), pero la estructura no fija la cantidad: mover
+    // una familia de depósito, o agregar uno nuevo, es editar esta configuración.
     $depositos = [];
-    foreach (['buloneria', 'tolsen', 'mechas', 'electrodos'] as $fam) {
-        $dep = $config["deposito_$fam"] ?? null;
-        if (!$dep) continue;
-        $resp = $dep['responsableId'] ? ($personal[$dep['responsableId']] ?? null) : null;
+    foreach ($config['depositos'] ?? [] as $dep) {
+        $resp = !empty($dep['responsableId']) ? ($personal[$dep['responsableId']] ?? null) : null;
         $dep['responsableNombre'] = $resp['nombre'] ?? null;
         $dep['responsableUsuario'] = $resp['usuario'] ?? null;
-        $depositos[$fam] = $dep;
+        $dep['familias'] = $dep['familias'] ?? [];
+        $depositos[] = $dep;
     }
+    usort($depositos, fn($a, $b) => ($a['numero'] ?? 99) <=> ($b['numero'] ?? 99));
 
     jsonSalida([
         'depositos' => $depositos,

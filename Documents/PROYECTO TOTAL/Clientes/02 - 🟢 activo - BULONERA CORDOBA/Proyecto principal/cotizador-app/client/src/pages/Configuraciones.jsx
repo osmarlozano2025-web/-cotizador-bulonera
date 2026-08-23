@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { FAMILIAS_LABEL } from '../utils/aprobaciones'
 
 export default function Configuraciones() {
   const { user, token } = useAuth()
@@ -20,23 +21,28 @@ export default function Configuraciones() {
       .catch(() => {})
   }, [])
 
-  // Asigna el responsable de un depósito conservando el resto de su configuración
-  const asignarResponsable = async (familia, responsableId) => {
-    const dep = config.depositos[familia]
+  /**
+   * Asigna el responsable de un depósito.
+   *
+   * Los depósitos se guardan como una sola lista, así que se reescribe entera
+   * cambiando nada más el responsable del que corresponde. Se conservan las
+   * familias de cada uno: son la configuración de qué despacha cada galpón.
+   */
+  const asignarResponsable = async (numero, responsableId) => {
+    const lista = (config.depositos || []).map((d) => ({
+      numero: d.numero,
+      nombre: d.nombre,
+      familias: d.familias,
+      responsableId: d.numero === numero ? (responsableId || null) : (d.responsableId || null),
+    }))
+
     setGuardando(true)
     setError(null)
     try {
-      const res = await fetch(`/api/configuraciones/deposito_${familia}`, {
+      const res = await fetch('/api/configuraciones/depositos', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          valor: {
-            numero: dep.numero,
-            familia,
-            nombre: dep.nombre,
-            responsableId: responsableId || null,
-          },
-        }),
+        body: JSON.stringify({ valor: lista }),
       })
       if (!res.ok) throw new Error((await res.json()).error || 'Error al guardar')
       setExito('✅ Responsable actualizado')
@@ -169,30 +175,40 @@ export default function Configuraciones() {
         <div className="bg-gradient-to-r from-emerald-500/15 to-transparent px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-slate-100">🏭 Depósitos y responsables</h2>
           <p className="text-xs text-slate-300 mt-1">
-            Cada familia se despacha desde su depósito. El responsable asignado sólo ve los pedidos de su depósito.
+            Hay dos depósitos y cuatro familias: Tolsen se despacha aparte, el resto sale del galpón general.
+            El responsable asignado a un depósito sólo ve los pedidos que le tocan.
           </p>
         </div>
 
         <div className="space-y-3 p-6">
-          {config.depositos && Object.entries(config.depositos).map(([familia, dep]) => (
-            <div key={familia} className="flex items-center justify-between gap-4 p-4 border border-white/10 rounded-lg">
+          {(config.depositos || []).map((dep) => (
+            <div key={dep.numero} className="flex items-center justify-between gap-4 p-4 border border-white/10 rounded-lg">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="shrink-0 w-9 h-9 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center">
                   {dep.numero}
                 </span>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-slate-100 capitalize">{familia}</h3>
+                  <h3 className="font-semibold text-slate-100">{dep.nombre}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Despacha{' '}
+                    {(dep.familias || []).map((f, i) => (
+                      <span key={f}>
+                        {i > 0 && ', '}
+                        <span className="text-slate-300">{FAMILIAS_LABEL[f] || f}</span>
+                      </span>
+                    ))}
+                  </p>
                   <p className="text-xs text-slate-400">
                     {dep.responsableNombre
                       ? `Responsable: ${dep.responsableNombre}`
-                      : 'Sin responsable asignado — lo ven todos los depósitos'}
+                      : 'Sin responsable — lo ve cualquiera con permiso de aprobar'}
                   </p>
                 </div>
               </div>
 
               <select
                 value={dep.responsableId || ''}
-                onChange={(e) => asignarResponsable(familia, e.target.value)}
+                onChange={(e) => asignarResponsable(dep.numero, e.target.value)}
                 disabled={guardando}
                 className="shrink-0 px-3 py-2 border border-white/10 rounded-lg text-sm bg-white/5 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
               >
