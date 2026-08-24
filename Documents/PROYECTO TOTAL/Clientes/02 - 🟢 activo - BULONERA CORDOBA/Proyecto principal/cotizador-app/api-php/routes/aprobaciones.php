@@ -356,13 +356,13 @@ function rutaAprobacionesCrear(): void
             $stmt = $pdo->prepare(
                 'INSERT INTO aprobaciones_items
                  (subpedidoId, codigo, descripcion, medida, marca, familia, subfamilia, precioGranel, cantidad,
-                  precioLista, descBase, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                  precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             $stmt->execute([
                 $subpedidoId, $it['codigo'] ?? null, $it['descripcion'], $it['medida'] ?? null, $it['marca'] ?? null,
                 $it['familia'] ?? $familia, $it['subfamilia'] ?? null, $it['precioGranel'] ?? $it['precio'] ?? 0, $it['cantidad'] ?? 1,
-                $d['precioLista'], $d['descBase'], $d['descAjusteFamilia'],
+                $d['precioLista'], $d['descAjusteFamilia'],
                 $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'],
             ]);
         }
@@ -522,8 +522,8 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
                 "INSERT INTO aprobaciones_items
                  (subpedidoId, codigo, descripcion, medida, marca, familia, subfamilia,
                   precioGranel, cantidad, cantidadConfirmada, estado, reemplazaA, nota,
-                  precioLista, descBase, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reemplazo', ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                  precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reemplazo', ?, ?, ?, ?, ?, ?, ?, ?)"
             )->execute([
                 $item['subpedidoId'],
                 $reemplazo['codigo'] ?? null,
@@ -537,7 +537,7 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
                 $reemplazo['cantidad'] ?? $item['cantidad'],
                 $itemId,
                 'Reemplaza a ' . ($item['codigo'] ?: $item['descripcion']),
-                $d['precioLista'], $d['descBase'], $d['descAjusteFamilia'],
+                $d['precioLista'], $d['descAjusteFamilia'],
                 $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'],
             ]);
         }
