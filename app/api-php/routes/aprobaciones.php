@@ -127,6 +127,13 @@ function armarPedido(PDO $pdo, array $aprobacion, array $subRows, array $itemsPo
             'subfamilia' => $it['subfamilia'],
             'precioGranel' => (float) $it['precioGranel'],
             'cantidad' => (float) $it['cantidad'],
+            // Cómo quedó el renglón: granel, fracción o unidad, y cuántos
+            // bultos son. Se guardó al cotizar y no se recalcula.
+            'modoVenta' => $it['modoVenta'] ?? 'unidad',
+            'bultos' => (int) ($it['bultos'] ?? 0),
+            'unidadGranel' => $it['unidadGranel'] === null ? null : (float) $it['unidadGranel'],
+            'unidadFraccion' => $it['unidadFraccion'] === null ? null : (float) $it['unidadFraccion'],
+            'descuentoItem' => (float) ($it['descuentoItem'] ?? 0),
             'cantidadConfirmada' => $it['cantidadConfirmada'] === null ? null : (float) $it['cantidadConfirmada'],
             'estado' => $it['estado'] ?? 'pendiente',
             'reemplazaA' => $it['reemplazaA'] === null ? null : (int) $it['reemplazaA'],
@@ -292,7 +299,8 @@ function catalogoDelPedido(PDO $pdo, array $items): array
 
     $huecos = implode(',', array_fill(0, count($codigos), '?'));
     $stmt = $pdo->prepare(
-        "SELECT codigo, descripcion, medida, marca, familia, subfamilia, precioGranel
+        "SELECT codigo, descripcion, medida, marca, familia, subfamilia,
+                precioLista, precioGranel, unidadGranel, unidadFraccion
          FROM productos WHERE codigo IN ($huecos)"
     );
     $stmt->execute($codigos);
@@ -375,7 +383,13 @@ function rutaAprobacionesCrear(): void
                     'marca' => $delCatalogo['marca'] ?? $it['marca'] ?? null,
                     'familia' => $delCatalogo['familia'] ?? $it['familia'] ?? $familia,
                     'subfamilia' => $delCatalogo['subfamilia'] ?? $it['subfamilia'] ?? null,
-                    'precioGranel' => (float) ($delCatalogo['precioGranel'] ?? $it['precioGranel'] ?? $it['precio'] ?? 0),
+                    // El precio de partida es el de lista.
+                    'precioLista' => (float) ($delCatalogo['precioLista'] ?? $it['precioLista'] ?? $it['precio'] ?? 0),
+                    'precioGranel' => (float) ($delCatalogo['precioGranel'] ?? $it['precioGranel'] ?? 0),
+                    // Los bultos del producto: con esto se sabe si el renglón
+                    // quedó en granel, en fracción o suelto.
+                    'unidadGranel' => $delCatalogo['unidadGranel'] ?? $it['unidadGranel'] ?? null,
+                    'unidadFraccion' => $delCatalogo['unidadFraccion'] ?? $it['unidadFraccion'] ?? null,
                     'cantidad' => (float) ($it['cantidad'] ?? 1),
                 ];
                 if ($renglon['descripcion'] === null || $renglon['descripcion'] === '') {
@@ -387,17 +401,22 @@ function rutaAprobacionesCrear(): void
 
                 // El desglose se calcula acá y queda congelado: si mañana cambian
                 // los porcentajes, este pedido sigue mostrando los suyos.
-                $d = calcularDesglose($renglon, $cfg, $condicionPago, $descuento, $ajuste);
+                $d = calcularDesglose(
+                    $renglon, $cfg, $condicionPago, $descuento, $ajuste,
+                    (float) ($it['descuentoItem'] ?? 0)
+                );
 
                 $stmt = $pdo->prepare(
                     'INSERT INTO aprobaciones_items
                      (subpedidoId, codigo, descripcion, medida, marca, familia, subfamilia, precioGranel, cantidad,
+                      modoVenta, bultos, unidadGranel, unidadFraccion, descuentoItem,
                       precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
                 );
                 $stmt->execute([
                     $subpedidoId, $renglon['codigo'], $renglon['descripcion'], $renglon['medida'], $renglon['marca'],
                     $renglon['familia'], $renglon['subfamilia'], $renglon['precioGranel'], $renglon['cantidad'],
+                    $d['modoVenta'], $d['bultos'], $renglon['unidadGranel'], $renglon['unidadFraccion'], $d['descuentoItem'],
                     $d['precioLista'], $d['descAjusteFamilia'],
                     $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'],
                 ]);

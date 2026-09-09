@@ -41,18 +41,67 @@ export function limitesDelTope(tope) {
   return { min: Math.min(0, t), max: Math.max(0, t) }
 }
 
-/** Precio del producto, antes de cualquier descuento. */
+/** El precio de partida es siempre el de lista. */
 export function precioBase(item) {
-  return Number(item.precioGranel) || Number(item.precio) || Number(item.precioLista) || 0
+  return Number(item.precioLista) || Number(item.precioGranel) || Number(item.precio) || 0
 }
 
-/** Precio unitario final de un renglón. */
-export function precioUnitario(item, config, condicionPago, descCliente, ajuste) {
+/**
+ * Si el renglón va por granel, por fracción o suelto.
+ *
+ * Espejo de modoPorCantidad() en api-php/lib/precios.php. No lo elige nadie:
+ * sale de comparar lo pedido contra los bultos que tiene cargados el producto.
+ */
+export function modoPorCantidad(item, cantidad) {
+  const granel = Number(item?.unidadGranel) || 0
+  const fraccion = Number(item?.unidadFraccion) || 0
+  const c = Number(cantidad ?? item?.cantidad) || 0
+
+  if (granel > 0 && c >= granel) return 'granel'
+  if (fraccion > 0 && c >= fraccion) return 'fraccion'
+  return 'unidad'
+}
+
+/** Cuántos bultos enteros entran en lo pedido: 150 varillas de a 30 son 5. */
+export function bultosDelRenglon(item, cantidad, modo) {
+  const porBulto = modo === 'granel'
+    ? Number(item?.unidadGranel) || 0
+    : modo === 'fraccion' ? Number(item?.unidadFraccion) || 0 : 0
+  return porBulto > 0 ? Math.floor((Number(cantidad ?? item?.cantidad) || 0) / porBulto) : 0
+}
+
+export const LABEL_MODO = { granel: 'Granel', fraccion: 'Fracción', unidad: 'Unidad' }
+
+/**
+ * Cómo se lee el renglón: "5 graneles de 30" o "2 fracciones de 400".
+ * Es lo que hay que ver además de la cantidad pedida.
+ */
+export function textoModo(item, cantidad) {
+  const modo = modoPorCantidad(item, cantidad)
+  if (modo === 'unidad') return 'Por unidad'
+
+  const bultos = bultosDelRenglon(item, cantidad, modo)
+  const porBulto = modo === 'granel' ? Number(item.unidadGranel) : Number(item.unidadFraccion)
+  const nombre = modo === 'granel'
+    ? (bultos === 1 ? 'granel' : 'graneles')
+    : (bultos === 1 ? 'fracción' : 'fracciones')
+
+  return `${bultos} ${nombre} de ${porBulto}`
+}
+
+/**
+ * Precio unitario final de un renglón.
+ *
+ * Arranca en el precio de lista. Nada descuenta solo por llegar a granel o a
+ * fracción: el descuento del renglón lo carga a mano quien arma el pedido.
+ */
+export function precioUnitario(item, config, condicionPago, descCliente, ajuste, descuentoItem = 0) {
   const tope = config?.descuentos_familia?.[item.familia] ?? 0
   const pago = Number(config?.descuentos_pago?.[condicionPago]) || 0
 
   return encadenarAjustes(precioBase(item), [
     ajusteDentroDelTope(ajuste, tope),
+    Number(descuentoItem) || 0,
     -Math.abs(Number(descCliente) || 0),
     pago,
   ])

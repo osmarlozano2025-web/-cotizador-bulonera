@@ -168,38 +168,89 @@ function condicionPagoValida(array $cfg, ?string $condicion): string
     return ($condicion !== null && isset($cfg['pago'][$condicion])) ? $condicion : 'contado';
 }
 
+const MODOS_VENTA = ['granel', 'fraccion', 'unidad'];
+
+/**
+ * Si el renglón va por granel, por fracción o suelto.
+ *
+ * No lo elige nadie: sale de comparar lo pedido contra los bultos que tiene
+ * cargados el producto. Si la cantidad llega al bulto de granel es granel; si
+ * llega al de fracción es fracción; si no, se vende por unidad. Tolsen no
+ * tiene bultos cargados, así que cae siempre en unidad.
+ */
+function modoPorCantidad(array $producto, float $cantidad): string
+{
+    $granel = (float) ($producto['unidadGranel'] ?? 0);
+    $fraccion = (float) ($producto['unidadFraccion'] ?? 0);
+
+    if ($granel > 0 && $cantidad >= $granel) return 'granel';
+    if ($fraccion > 0 && $cantidad >= $fraccion) return 'fraccion';
+    return 'unidad';
+}
+
+/**
+ * Cuántos bultos enteros entran en lo pedido.
+ *
+ * Un granel de 30 varillas pedido de a 150 son 5 graneles. Es el dato que hay
+ * que ver en el renglón, además de las 150 unidades: sin él no se sabe cuánto
+ * se está llevando en realidad.
+ */
+function bultosDelRenglon(array $producto, float $cantidad, string $modo): int
+{
+    $porBulto = $modo === 'granel'
+        ? (float) ($producto['unidadGranel'] ?? 0)
+        : ($modo === 'fraccion' ? (float) ($producto['unidadFraccion'] ?? 0) : 0.0);
+
+    return $porBulto > 0 ? (int) floor($cantidad / $porBulto) : 0;
+}
+
 /**
  * Calcula el desglose de un renglón.
  *
- * @param array  $item          producto con precioGranel (o precio) y familia
+ * El precio de partida es SIEMPRE el de lista. El sistema no descuenta nada por
+ * su cuenta por llegar a granel o a fracción: se limita a decir en qué modo
+ * quedó el renglón y cuántos bultos son, y el descuento lo carga a mano quien
+ * arma el pedido, mirando eso.
+ *
+ * @param array  $item          producto con precioLista, familia y cantidad
  * @param array  $cfg           resultado de configDescuentos()
- * @param string $condicionPago contado | 30dias | 60dias
- * @param float  $descCliente   % del tipo de descuento del cliente (positivo descuenta)
+ * @param string $condicionPago contado | 30dias | 60dias | las que se agreguen
+ * @param float  $descCliente   % de la ficha del cliente (positivo descuenta)
  * @param float  $ajusteFamilia lo cargado en el pedido para esa familia
+ * @param float  $descuentoItem lo cargado a mano en este renglón
  */
 function calcularDesglose(
     array $item,
     array $cfg,
     string $condicionPago,
     float $descCliente = 0,
-    float $ajusteFamilia = 0
+    float $ajusteFamilia = 0,
+    float $descuentoItem = 0
 ): array {
     $familia = $item['familia'] ?? 'otros';
-    $precio = (float) ($item['precioGranel'] ?? $item['precio'] ?? $item['precioLista'] ?? 0);
+    $precio = (float) ($item['precioLista'] ?? $item['precioGranel'] ?? $item['precio'] ?? 0);
+    $cantidad = (float) ($item['cantidad'] ?? 1);
+
+    $modo = modoPorCantidad($item, $cantidad);
+    $bultos = bultosDelRenglon($item, $cantidad, $modo);
 
     $tope = $cfg['topes'][$familia] ?? 0.0;
     $ajuste = ajusteDentroDelTope($ajusteFamilia, $tope);
+    $propio = (float) $descuentoItem;
 
     $pago = (float) ($cfg['pago'][condicionPagoValida($cfg, $condicionPago)] ?? 0);
 
     // El descuento del cliente viene como positivo y descuenta, así que se
     // invierte para entrar en la cadena con la convención de signo del resto.
-    $neto = encadenarAjustes($precio, [$ajuste, -abs($descCliente), $pago]);
+    $neto = encadenarAjustes($precio, [$ajuste, $propio, -abs($descCliente), $pago]);
 
     return [
         'precioLista' => round($precio, 2),
         'precioBase' => round($precio, 2),
         'topeFamilia' => $tope,
+        'modoVenta' => $modo,
+        'bultos' => $bultos,
+        'descuentoItem' => round($propio, 2),
         'descAjusteFamilia' => $ajuste,
         'descPago1' => $pago,
         'descPago2' => 0.0,

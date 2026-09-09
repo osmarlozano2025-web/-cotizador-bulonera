@@ -11,20 +11,23 @@ const money = (n) => `$${(n || 0).toLocaleString('es-AR', { minimumFractionDigit
 
 /**
  * Todos los descuentos del renglón, en el orden en que se aplican:
- * familia, cliente y condición de pago.
+ * familia, el propio del renglón, el del cliente y la condición de pago.
  */
 function textoDescuentos(it) {
   const partes = []
+  const conSigno = (n) => (n < 0 ? `${-n}%` : `+${n}%`)
 
   const ajuste = Number(it.descAjusteFamilia) || 0
-  if (ajuste < 0) partes.push(`${-ajuste}%`)
-  else if (ajuste > 0) partes.push(`+${ajuste}%`)
+  if (ajuste !== 0) partes.push(conSigno(ajuste))
+
+  // El que se carga a mano mirando si el renglón salió por granel o fracción.
+  const propio = Number(it.descuentoItem) || 0
+  if (propio !== 0) partes.push(conSigno(propio))
 
   if (it.descCliente > 0) partes.push(`${it.descCliente}%`)
 
   const pago = Number(it.descPago1) || 0
-  if (pago < 0) partes.push(`${-pago}%`)
-  else if (pago > 0) partes.push(`+${pago}%`)
+  if (pago !== 0) partes.push(conSigno(pago))
 
   return partes.length ? partes.join(' + ') : '—'
 }
@@ -78,7 +81,7 @@ export default function Proforma() {
     <div className="documento min-h-screen bg-gray-100 print:bg-white">
       <style>{`
         @media print {
-          @page { size: A4; margin: 14mm; }
+          @page { size: A4 landscape; margin: 10mm; }
           body { background: white; }
           .no-print { display: none !important; }
           .hoja { box-shadow: none !important; margin: 0 !important; }
@@ -95,7 +98,7 @@ export default function Proforma() {
         </button>
       </div>
 
-      <div className="hoja max-w-3xl mx-auto bg-white shadow-sm my-6 p-8 space-y-3 print:my-0 print:shadow-none print:max-w-none text-[13px]">
+      <div className="hoja max-w-5xl mx-auto bg-white shadow-sm my-6 p-8 space-y-3 print:my-0 print:shadow-none print:max-w-none text-[13px]">
         {/* Encabezado */}
         <div className="flex items-start justify-between border-b border-gray-200 pb-3">
           <div className="flex items-center gap-2.5">
@@ -162,7 +165,9 @@ export default function Proforma() {
                       <th className="text-left py-0.5 font-semibold">Código</th>
                       <th className="text-left py-0.5 font-semibold">Descripción</th>
                       <th className="text-right py-0.5 font-semibold">Cant.</th>
-                      <th className="text-right py-0.5 font-semibold">Precio</th>
+                      <th className="text-left py-0.5 font-semibold">Cómo sale</th>
+                      <th className="text-right py-0.5 font-semibold">Bultos</th>
+                      <th className="text-right py-0.5 font-semibold">Lista</th>
                       <th className="text-right py-0.5 font-semibold">Dto.</th>
                       <th className="text-right py-0.5 font-semibold">P. Neto</th>
                       <th className="text-right py-0.5 font-semibold">Subtotal</th>
@@ -193,6 +198,17 @@ export default function Proforma() {
                                 de {it.cantidad}
                               </span>
                             )}
+                          </td>
+                          {/* Cómo salió el renglón y en cuántos bultos: es la
+                              diferencia entre 300 unidades sueltas y 2 fracciones. */}
+                          <td className="py-0.5 text-gray-600">
+                            {it.modoVenta === 'granel' ? 'Granel'
+                              : it.modoVenta === 'fraccion' ? 'Fracción' : 'Unidad'}
+                          </td>
+                          <td className="py-0.5 text-right text-gray-600">
+                            {it.bultos > 0
+                              ? `${it.bultos} × ${it.modoVenta === 'granel' ? it.unidadGranel : it.unidadFraccion}`
+                              : '—'}
                           </td>
                           <td className="py-0.5 text-right text-gray-400">
                             {lista !== neto ? money(lista) : '—'}

@@ -111,10 +111,13 @@ try {
 
         echo "  aplicando     $nombre ... ";
         $sentencias = separarSentencias(file_get_contents($ruta));
+        $corridas = 0;
+        $salteadas = 0;
 
         foreach ($sentencias as $sentencia) {
             try {
                 $pdo->exec($sentencia);
+                $corridas++;
             } catch (PDOException $e) {
                 // Estas migraciones son idempotentes por diseño; si una columna
                 // o tabla ya existe seguimos, cualquier otro error corta.
@@ -126,11 +129,16 @@ try {
                     echo "\n     ERROR en: " . substr(preg_replace('/\s+/', ' ', $sentencia), 0, 120) . "\n";
                     throw $e;
                 }
+                $salteadas++;
             }
         }
 
         $pdo->prepare('INSERT INTO migraciones (archivo) VALUES (?)')->execute([$nombre]);
-        echo "ok (" . count($sentencias) . " sentencias)\n";
+
+        // Se dice cuántas se saltearon: un archivo entero salteado se leía como
+        // "ok" y daba a entender que la base había cambiado cuando no fue así.
+        echo "ok ($corridas de " . count($sentencias) . " sentencias"
+           . ($salteadas ? ", $salteadas ya estaban" : '') . ")\n";
     }
 
     if ($soloEstado) {

@@ -73,8 +73,18 @@ export default function BuscadorProducto({ onAgregar }) {
                   </div>
                 </div>
                 <div className="text-right ml-4 shrink-0">
-                  {p.precioGranel > 0 && (
-                    <p className="text-sm font-semibold text-emerald-400">${p.precioGranel.toFixed(2)}</p>
+                  {/* El de lista, que es con el que arranca el renglón. */}
+                  {p.precioLista > 0 && (
+                    <p className="text-sm font-semibold text-emerald-400">${p.precioLista.toFixed(2)}</p>
+                  )}
+                  {/* Los bultos, para saber de antemano cuánto hay que pedir
+                      para que el renglón caiga en fracción o en granel. */}
+                  {(p.unidadGranel > 0 || p.unidadFraccion > 0) && (
+                    <p className="text-[11px] text-slate-400">
+                      {p.unidadFraccion > 0 && `fracc. ${p.unidadFraccion}`}
+                      {p.unidadFraccion > 0 && p.unidadGranel > 0 && ' · '}
+                      {p.unidadGranel > 0 && `granel ${p.unidadGranel}`}
+                    </p>
                   )}
                   <p className="text-xs text-blue-500 opacity-0 group-hover:opacity-100 transition">+ Agregar</p>
                 </div>

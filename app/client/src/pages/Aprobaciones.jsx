@@ -151,6 +151,30 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
               <span className="line-through ml-1">{money(item.precioLista)}</span>
             )}
           </p>
+
+          {/* Cómo sale del depósito: son bultos cerrados, no unidades sueltas.
+              Es lo que hay que saber para prepararlo. */}
+          {item.modoVenta && item.modoVenta !== 'unidad' && (
+            <p className="text-[11px] mt-0.5">
+              <span className={`chip ${
+                item.modoVenta === 'granel'
+                  ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/25'
+                  : 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-400/25'
+              }`}>
+                {item.modoVenta === 'granel' ? 'Granel' : 'Fracción'}
+              </span>
+              {item.bultos > 0 && (
+                <span className="text-slate-400 ml-1.5">
+                  {item.bultos}{' '}
+                  {item.modoVenta === 'granel'
+                    ? (item.bultos === 1 ? 'granel' : 'graneles')
+                    : (item.bultos === 1 ? 'fracción' : 'fracciones')}
+                  {' de '}
+                  {item.modoVenta === 'granel' ? item.unidadGranel : item.unidadFraccion}
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="shrink-0 flex items-center gap-1.5">

@@ -1,8 +1,17 @@
 import { etiquetaFamilia, numeroDeDeposito, etiquetaPago } from '../utils/aprobaciones'
+import CampoNumero from './CampoNumero'
 import {
   precioUnitario, precioBase, agruparPorFamilia,
-  textoTope, limitesDelTope, ajusteDentroDelTope,
+  textoTope, ajusteDentroDelTope,
+  modoPorCantidad, textoModo, LABEL_MODO,
 } from '../utils/precios'
+
+/** Cada modo con su color, para reconocerlo de un vistazo en el renglón. */
+const COLOR_MODO = {
+  granel: 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/25',
+  fraccion: 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-400/25',
+  unidad: 'bg-slate-500/15 text-slate-300 ring-1 ring-slate-400/25',
+}
 
 const COLOR_FAMILIA = {
   buloneria: 'bg-sky-500/15 text-sky-300 ring-1 ring-sky-400/25',
@@ -42,16 +51,11 @@ function DescuentoFamilia({ valor, tope, onChange }) {
         <span className="block text-[10px] text-slate-400">{textoTope(tope)}</span>
       </div>
       <div className="relative">
-        <input
-          type="number"
-          inputMode="decimal"
+        <CampoNumero
           placeholder="-10"
-          value={valor === 0 ? '' : valor}
+          value={valor}
           disabled={bloqueado}
-          onChange={e => {
-            const v = e.target.value === '' ? 0 : parseFloat(e.target.value)
-            onChange(ajusteDentroDelTope(isNaN(v) ? 0 : v, tope))
-          }}
+          onChange={(n) => onChange(ajusteDentroDelTope(n, tope))}
           className={`tabular w-24 border rounded-lg pl-2.5 pr-6 py-1.5 text-right text-sm font-medium
             focus:outline-none focus:ring-2 disabled:bg-white/10 disabled:text-slate-400 transition ${
             valor < 0
@@ -82,7 +86,7 @@ export default function TablaProductos({
   const topeDe = (familia) => config?.descuentos_familia?.[familia] ?? 0
   const ajusteDe = (familia) => ajusteDentroDelTope(descuentosFamilia[familia] ?? 0, topeDe(familia))
   const unitario = (item, familia) =>
-    precioUnitario(item, config, condicionPago, descuento, ajusteDe(familia))
+    precioUnitario(item, config, condicionPago, descuento, ajusteDe(familia), item.descuentoItem || 0)
 
   const actualizar = (idx, campo, valor) => {
     onChange(prev => {
@@ -112,7 +116,9 @@ export default function TablaProductos({
             <tr className="border-b border-white/10">
               <th className="text-left pb-2 etiqueta">Producto</th>
               <th className="text-right pb-2 etiqueta w-24">Cant.</th>
-              <th className="text-right pb-2 etiqueta w-32">Precio</th>
+              <th className="text-left pb-2 etiqueta w-40">Cómo sale</th>
+              <th className="text-right pb-2 etiqueta w-28">Dto. renglón</th>
+              <th className="text-right pb-2 etiqueta w-32">Lista</th>
               <th className="text-right pb-2 etiqueta w-32">Unitario</th>
               <th className="text-right pb-2 etiqueta w-32">Subtotal</th>
               <th className="w-10"></th>
@@ -127,7 +133,7 @@ export default function TablaProductos({
             return (
               <tbody key={familia}>
                 <tr>
-                  <td colSpan={6} className="pt-4">
+                  <td colSpan={8} className="pt-4">
                     <div className="flex items-center justify-between gap-3 flex-wrap bg-white/5 rounded-xl px-3 py-2">
                       <span className="flex items-center gap-2">
                         {numero && (
@@ -162,6 +168,7 @@ export default function TablaProductos({
                 {filas.map(({ item, idx }) => {
                   const base = precioBase(item)
                   const unit = unitario(item, familia)
+                  const modo = modoPorCantidad(item, item.cantidad)
 
                   return (
                     <tr key={idx} className="border-b border-white/5 hover:bg-white/5/60">
@@ -172,25 +179,47 @@ export default function TablaProductos({
                         </p>
                       </td>
                       <td className="py-2">
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min="1"
+                        <CampoNumero
                           value={item.cantidad}
-                          onChange={e => actualizar(idx, 'cantidad', Math.max(1, parseInt(e.target.value) || 1))}
+                          vacioEnCero={false}
+                          decimales={false}
+                          onChange={(n) => actualizar(idx, 'cantidad', Math.max(1, n || 1))}
                           className="tabular w-16 border border-white/10 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] ml-auto block"
                         />
                       </td>
+
+                      {/* Qué es este renglón: el dato que hay que ver para saber
+                          cuánto descuento corresponde ponerle. */}
                       <td className="py-2">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          value={base}
-                          onChange={e => actualizar(idx, 'precioGranel', parseFloat(e.target.value) || 0)}
-                          className="tabular w-28 border border-white/10 rounded-lg px-2 py-1.5 text-right text-sm text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] ml-auto block"
-                        />
+                        <span className={`chip ${COLOR_MODO[modo]}`}>{LABEL_MODO[modo]}</span>
+                        {modo !== 'unidad' && (
+                          <span className="block text-[11px] text-slate-400 mt-0.5">
+                            {textoModo(item, item.cantidad)}
+                          </span>
+                        )}
                       </td>
+
+                      <td className="py-2">
+                        <div className="relative w-24 ml-auto">
+                          <CampoNumero
+                            value={item.descuentoItem ?? 0}
+                            onChange={(n) => actualizar(idx, 'descuentoItem', n)}
+                            placeholder="-25"
+                            title="Descuento de este renglón. Se escribe: -25, +10…"
+                            className={`tabular w-full border rounded-lg pl-2.5 pr-6 py-1.5 text-right text-sm font-medium
+                              focus:outline-none focus:ring-2 transition ${
+                              (item.descuentoItem || 0) < 0
+                                ? 'border-emerald-400/50 text-emerald-300 bg-emerald-500/10 focus:ring-emerald-400'
+                                : (item.descuentoItem || 0) > 0
+                                  ? 'border-amber-400/50 text-amber-300 bg-amber-500/10 focus:ring-amber-400'
+                                  : 'border-white/10 focus:ring-[var(--cb-500)]'
+                            }`}
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+                        </div>
+                      </td>
+
+                      <td className="tabular py-2 text-right text-slate-400">{money(base)}</td>
                       <td className={`tabular py-2 text-right ${
                         unit < base ? 'text-emerald-300' : unit > base ? 'text-amber-400' : 'text-slate-300'
                       }`}>
