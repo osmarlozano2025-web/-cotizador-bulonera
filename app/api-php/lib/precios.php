@@ -21,8 +21,59 @@
 
 require_once __DIR__ . '/db.php';
 
-const CONDICIONES_PAGO = ['contado', '30dias', '60dias'];
-const FAMILIAS_CONFIG = ['buloneria', 'tolsen', 'mechas', 'electrodos'];
+/**
+ * Las condiciones de pago que existen desde la primera versión. Se guardan con
+ * la clave 'descuento_*'; las que carga el usuario van con 'pago_*'.
+ */
+const PAGOS_DE_FABRICA = ['contado' => 'Contado', '30dias' => '30 días', '60dias' => '60 días'];
+
+/** Con las que arranca una base que todavía no tiene la lista cargada. */
+const FAMILIAS_POR_DEFECTO = [
+    ['clave' => 'buloneria',       'nombre' => 'Bulonería',      'orden' => 1],
+    ['clave' => 'tolsen',          'nombre' => 'Tolsen',         'orden' => 2],
+    ['clave' => 'mechas',          'nombre' => 'Mechas',         'orden' => 3],
+    ['clave' => 'electrodos',      'nombre' => 'Electrodos',     'orden' => 4],
+    ['clave' => 'escaleras',       'nombre' => 'Escaleras',      'orden' => 5],
+    ['clave' => 'cintas_metricas', 'nombre' => 'Cintas Métricas','orden' => 6],
+];
+
+/**
+ * Las familias de producto, en el orden en que se muestran.
+ *
+ * Salen de la configuración y no de una lista escrita en el código: antes la
+ * misma lista estaba repetida en seis archivos, y agregar una familia sin tocar
+ * los seis la dejaba a medias — visible en pantalla pero sin descuento ni
+ * depósito. Devuelve clave => ['clave', 'nombre', 'orden'].
+ */
+function familiasConfiguradas(PDO $pdo): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $fila = $pdo->query("SELECT valor FROM configuraciones WHERE clave = 'familias' AND activo = 1")->fetch();
+    $lista = $fila ? json_decode($fila['valor'], true) : null;
+    if (!is_array($lista) || !$lista) $lista = FAMILIAS_POR_DEFECTO;
+
+    $familias = [];
+    foreach ($lista as $f) {
+        $clave = $f['clave'] ?? null;
+        if (!$clave) continue;
+        $familias[$clave] = [
+            'clave' => $clave,
+            'nombre' => $f['nombre'] ?? $clave,
+            'orden' => (int) ($f['orden'] ?? 99),
+        ];
+    }
+    uasort($familias, fn($a, $b) => $a['orden'] <=> $b['orden']);
+
+    return $cache = $familias;
+}
+
+/** Sólo las claves, que es lo que se compara contra el campo del producto. */
+function clavesDeFamilia(PDO $pdo): array
+{
+    return array_keys(familiasConfiguradas($pdo));
+}
 
 /** Aplica un porcentaje con signo: negativo descuenta, positivo aumenta. */
 function aplicarAjuste(float $precio, float $ajuste): float
@@ -76,29 +127,45 @@ function configDescuentos(PDO $pdo): array
     ];
 
     $topes = [];
-    foreach (FAMILIAS_CONFIG as $fam) {
+    foreach (clavesDeFamilia($pdo) as $fam) {
         $topes[$fam] = topeValido($valores["descuento_$fam"]['limite'] ?? 0, $rango);
     }
 
+    // Las tres de fábrica más las que haya cargado el usuario. Cada una lleva
+    // el nombre con el que se escribió, que es el que se muestra.
     $pago = [];
-    foreach (CONDICIONES_PAGO as $c) {
-        $pago[$c] = topeValido($valores["descuento_$c"]['valor'] ?? 0, $rango);
+    $etiquetasPago = [];
+    foreach (PAGOS_DE_FABRICA as $clave => $nombre) {
+        $pago[$clave] = topeValido($valores["descuento_$clave"]['valor'] ?? 0, $rango);
+        $etiquetasPago[$clave] = $nombre;
+    }
+    foreach ($valores as $clave => $v) {
+        if (strpos($clave, 'pago_') !== 0) continue;
+        $nombre = substr($clave, strlen('pago_'));
+        $pago[$nombre] = topeValido($v['valor'] ?? 0, $rango);
+        $etiquetasPago[$nombre] = $v['nombre'] ?? $nombre;
     }
 
-    $cache = [
+    return $cache = [
         'rango' => $rango,
         // Tope por familia: lo máximo que se puede cargar en el pedido.
         'topes' => $topes,
         // Condición de pago: un solo valor con signo.
         'pago' => $pago,
+        'etiquetasPago' => $etiquetasPago,
     ];
-    return $cache;
 }
 
-/** Normaliza la condición de pago a una de las válidas. */
-function condicionPagoValida(?string $condicion): string
+/**
+ * Normaliza la condición de pago contra las que existen de verdad.
+ *
+ * Antes la lista estaba escrita en el código y sólo tenía las tres originales:
+ * una condición nueva se convertía en "contado" sin avisar, y cobraba el
+ * descuento equivocado.
+ */
+function condicionPagoValida(array $cfg, ?string $condicion): string
 {
-    return in_array($condicion, CONDICIONES_PAGO, true) ? $condicion : 'contado';
+    return ($condicion !== null && isset($cfg['pago'][$condicion])) ? $condicion : 'contado';
 }
 
 /**
@@ -123,7 +190,7 @@ function calcularDesglose(
     $tope = $cfg['topes'][$familia] ?? 0.0;
     $ajuste = ajusteDentroDelTope($ajusteFamilia, $tope);
 
-    $pago = (float) ($cfg['pago'][condicionPagoValida($condicionPago)] ?? 0);
+    $pago = (float) ($cfg['pago'][condicionPagoValida($cfg, $condicionPago)] ?? 0);
 
     // El descuento del cliente viene como positivo y descuenta, así que se
     // invierte para entrar en la cadena con la convención de signo del resto.

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { FAMILIAS_LABEL } from '../utils/aprobaciones'
+import { etiquetaFamilia } from '../utils/aprobaciones'
 
 /** Vienen desde la primera versión y se guardan bajo la clave 'descuento_*'. */
 const CONDICIONES_DE_FABRICA = ['contado', '30dias', '60dias']
@@ -99,7 +99,7 @@ export default function Configuraciones() {
   const cargarConfiguraciones = async (silencioso = false) => {
     try {
       if (!silencioso) setCargando(true)
-      const res = await fetch('/api/configuraciones')
+      const res = await fetch('/api/configuraciones', { headers: { Authorization: `Bearer ${token}` } })
       if (!res.ok) throw new Error('Error al cargar configuraciones')
       const data = await res.json()
       setConfig(data)
@@ -192,8 +192,8 @@ export default function Configuraciones() {
         <div className="bg-gradient-to-r from-emerald-500/15 to-transparent px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-slate-100">🏭 Depósitos y responsables</h2>
           <p className="text-xs text-slate-300 mt-1">
-            Hay dos depósitos y cuatro familias: Tolsen se despacha aparte, el resto sale del galpón general.
-            El responsable asignado a un depósito sólo ve los pedidos que le tocan.
+            Cada depósito despacha una o más familias. El responsable asignado sólo ve los
+            pedidos que le tocan. Una familia nueva entra al primer depósito hasta que se la ubique.
           </p>
         </div>
 
@@ -211,7 +211,7 @@ export default function Configuraciones() {
                     {(dep.familias || []).map((f, i) => (
                       <span key={f}>
                         {i > 0 && ', '}
-                        <span className="text-slate-300">{FAMILIAS_LABEL[f] || f}</span>
+                        <span className="text-slate-300">{etiquetaFamilia(config, f)}</span>
                       </span>
                     ))}
                   </p>
@@ -258,7 +258,7 @@ export default function Configuraciones() {
             return (
               <div key={familia} className="flex items-center justify-between gap-4 p-4 border border-white/10 rounded-lg">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-slate-100 capitalize">{familia}</h3>
+                  <h3 className="font-semibold text-slate-100">{etiquetaFamilia(config, familia)}</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {limite === 0
                       ? 'No admite descuento: en el pedido queda fijo en 0'

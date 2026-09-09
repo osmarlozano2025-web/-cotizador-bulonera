@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../lib/db.php';
+require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/response.php';
 
 function castTipoDescuento(array $t): array
@@ -16,6 +17,7 @@ function castCliente(array $c): array
 
 function rutaTiposDescuento(): void
 {
+    requireAuth();
     $pdo = obtenerPDO();
     $rows = $pdo->query('SELECT * FROM tipos_descuento ORDER BY porcentaje')->fetchAll();
     jsonSalida(array_map('castTipoDescuento', $rows));
@@ -23,6 +25,7 @@ function rutaTiposDescuento(): void
 
 function rutaClientesListar(): void
 {
+    requireAuth();
     $pdo = obtenerPDO();
     $q = $_GET['q'] ?? '';
     if ($q !== '') {
@@ -37,6 +40,7 @@ function rutaClientesListar(): void
 
 function rutaClientesObtener(string $id): void
 {
+    requireAuth();
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM clientes WHERE id = ?');
     $stmt->execute([$id]);
@@ -47,6 +51,7 @@ function rutaClientesObtener(string $id): void
 
 function rutaClientesCrear(): void
 {
+    requireAuth();
     $body = cuerpoJson();
     $pdo = obtenerPDO();
 
@@ -79,6 +84,7 @@ function rutaClientesCrear(): void
 
 function rutaClientesActualizar(string $id): void
 {
+    requireAuth();
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM clientes WHERE id = ?');
     $stmt->execute([$id]);
@@ -114,6 +120,7 @@ function rutaClientesActualizar(string $id): void
 
 function rutaClientesEliminar(string $id): void
 {
+    requireRole(requireAuth(), ['Administrador']);
     $pdo = obtenerPDO();
     $pdo->prepare('DELETE FROM clientes WHERE id = ?')->execute([$id]);
     jsonSalida(['ok' => true]);

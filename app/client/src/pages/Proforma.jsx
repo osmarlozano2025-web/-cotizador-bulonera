@@ -3,8 +3,6 @@ import { useParams, Link } from 'react-router-dom'
 import {
   obtenerConfirmacion,
   FAMILIAS_LABEL,
-  etiquetaPago,
-  obtenerConfiguraciones,
   cantidadAEntregar,
   precioFinal,
 } from '../utils/aprobaciones'
@@ -37,20 +35,13 @@ export default function Proforma() {
   const [cliente, setCliente] = useState(null)
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(true)
-  const [config, setConfig] = useState(null)
-
-  useEffect(() => { obtenerConfiguraciones().then(setConfig).catch(() => {}) }, [])
-
   useEffect(() => {
     obtenerConfirmacion(token)
-      .then(async p => {
+      .then(p => {
         setPedido(p)
-        if (p.clienteId) {
-          try {
-            const res = await fetch(`/api/clientes/${p.clienteId}`)
-            if (res.ok) setCliente(await res.json())
-          } catch { /* sin datos extendidos, seguimos con lo básico */ }
-        }
+        // Los datos de la ficha vienen con el pedido: esta página la abre el
+        // cliente sin sesión, y el token del link es lo que la autoriza.
+        setCliente(p.cliente || null)
       })
       .catch(e => setError(e.message))
       .finally(() => setCargando(false))
@@ -123,7 +114,7 @@ export default function Proforma() {
               Confirmada el {new Date(pedido.fechaConfirmacion).toLocaleDateString('es-AR')}
             </p>
             <p className="text-[11px] text-gray-400">
-              Pago: {etiquetaPago(config, pedido.condicionPago)}
+              Pago: {pedido.condicionPagoEtiqueta || 'Contado'}
             </p>
           </div>
         </div>
@@ -259,7 +250,7 @@ export default function Proforma() {
 
             <div className="flex justify-between text-gray-500">
               <span>Condición de pago</span>
-              <span>{etiquetaPago(config, pedido.condicionPago)}</span>
+              <span>{pedido.condicionPagoEtiqueta || 'Contado'}</span>
             </div>
 
             {pedido.descuento > 0 && (

@@ -124,8 +124,35 @@ $d = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 0], $cfg, 'conta
 verificar('precio cero no rompe', 0.0, $d['precioNeto']);
 verificar('descuento efectivo de un precio cero es 0', 0.0, descuentoEfectivo($d));
 
-verificar('condición de pago inventada cae en contado', 'contado', condicionPagoValida('90dias'));
-verificar('null cae en contado', 'contado', condicionPagoValida(null));
+verificar('condición de pago inventada cae en contado', 'contado', condicionPagoValida($cfg, '90dias'));
+verificar('null cae en contado', 'contado', condicionPagoValida($cfg, null));
+
+echo "\n--- condiciones de pago cargadas por el usuario\n";
+
+// Una condición nueva se guarda bajo 'pago_*'. Antes la lista de condiciones
+// estaba escrita en el código: cualquier otra se convertía en "contado" sin
+// avisar y el pedido salía con el descuento equivocado.
+$cfgConEfectivo = $cfg;
+$cfgConEfectivo['pago']['efectivo'] = -15.0;
+
+verificar('una condición cargada por el usuario se respeta', 'efectivo',
+    condicionPagoValida($cfgConEfectivo, 'efectivo'));
+
+$d = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 100], $cfgConEfectivo, 'efectivo', 0, 0);
+verificar('y descuenta lo suyo, no lo de contado', 85.0, $d['precioNeto']);
+verificar('el desglose la deja asentada', -15.0, $d['descPago1']);
+
+echo "\n--- familias cargadas después\n";
+
+// Mismo problema del otro lado: una familia agregada en Configuraciones que el
+// motor no conocía quedaba con tope 0 y nunca descontaba nada.
+$cfgConEscaleras = $cfg;
+$cfgConEscaleras['topes']['escaleras'] = -20.0;
+
+$d = calcularDesglose(['familia' => 'escaleras', 'precioGranel' => 200], $cfgConEscaleras, 'contado', 0, -20);
+verificar('una familia nueva aplica su tope', 160.0, $d['precioNeto']);
+verificar('y no deja pasar más que el tope', 160.0,
+    calcularDesglose(['familia' => 'escaleras', 'precioGranel' => 200], $cfgConEscaleras, 'contado', 0, -50)['precioNeto']);
 
 echo "\n";
 echo $fallados === 0

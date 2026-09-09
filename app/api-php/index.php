@@ -8,9 +8,24 @@ require_once __DIR__ . '/routes/aprobaciones.php';
 require_once __DIR__ . '/routes/integraciones.php';
 require_once __DIR__ . '/routes/configuraciones.php';
 
+/**
+ * Un error inesperado se anota entero de este lado y del otro sale un aviso
+ * corto. El mensaje de PHP nombra tablas, rutas y a veces la conexión: eso no
+ * viaja al navegador. El código queda en la respuesta para poder cruzarlo con
+ * el registro cuando alguien avisa que algo falló.
+ */
 set_exception_handler(function ($e) {
-    error_log($e->getMessage());
-    jsonError('Error interno: ' . $e->getMessage(), 500);
+    $referencia = bin2hex(random_bytes(4));
+    error_log(sprintf(
+        '[%s] %s %s — %s en %s:%d',
+        $referencia,
+        $_SERVER['REQUEST_METHOD'] ?? '?',
+        $_SERVER['REQUEST_URI'] ?? '?',
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine()
+    ));
+    jsonError("Hubo un problema y no se pudo completar. Referencia: $referencia", 500);
 });
 
 $metodo = $_SERVER['REQUEST_METHOD'];

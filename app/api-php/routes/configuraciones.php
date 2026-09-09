@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/response.php';
+require_once __DIR__ . '/../lib/precios.php';
+require_once __DIR__ . '/../lib/depositos.php';
 
 // Caché en memoria global
 $config_cache = [];
@@ -31,8 +33,15 @@ function cargarConfiguracion() {
     return $config;
 }
 
-// GET /api/configuraciones (público, caché)
+/**
+ * GET /api/configuraciones — reglas vigentes, para la gente de la casa.
+ *
+ * Pide sesión: acá están los topes de descuento de cada familia y quién es
+ * responsable de cada depósito. La proforma que abre el cliente no la necesita,
+ * porque el pedido ya viaja con los nombres que muestra.
+ */
 function rutaConfiguracionesObtener() {
+    requireAuth();
     $config = cargarConfiguracion();
 
     // Depósitos con el nombre del responsable resuelto desde personal
@@ -45,8 +54,11 @@ function rutaConfiguracionesObtener() {
     // Los depósitos son una lista: cada uno agrupa las familias que despacha.
     // Son dos (general y Tolsen), pero la estructura no fija la cantidad: mover
     // una familia de depósito, o agregar uno nuevo, es editar esta configuración.
+    // Se leen con depositosConfigurados() y no de la clave cruda, para que esta
+    // pantalla muestre lo mismo que usa el flujo de pedidos: ahí una familia
+    // sin depósito se le asigna al primero, y acá tiene que verse igual.
     $depositos = [];
-    foreach ($config['depositos'] ?? [] as $dep) {
+    foreach (depositosConfigurados($pdo) as $dep) {
         $resp = !empty($dep['responsableId']) ? ($personal[$dep['responsableId']] ?? null) : null;
         $dep['responsableNombre'] = $resp['nombre'] ?? null;
         $dep['responsableUsuario'] = $resp['usuario'] ?? null;
@@ -55,34 +67,19 @@ function rutaConfiguracionesObtener() {
     }
     usort($depositos, fn($a, $b) => ($a['numero'] ?? 99) <=> ($b['numero'] ?? 99));
 
-    // Familias conocidas
-    $familias = ['buloneria', 'tolsen', 'mechas', 'electrodos', 'escaleras', 'cintas_metricas'];
+    // Topes, condiciones de pago y familias salen del motor de precios, que es
+    // el que manda. Si esta pantalla armara su propia lista, volvería a pasar
+    // lo de antes: una familia visible acá que el cálculo no reconoce.
+    $reglas = configDescuentos($pdo);
+    $descuentos_familia = $reglas['topes'];
+    $descuentos_pago = $reglas['pago'];
+    $etiquetas_pago = $reglas['etiquetasPago'];
 
-    $descuentos_familia = [];
-    foreach ($familias as $fam) {
-        $descuentos_familia[$fam] = (float) ($config["descuento_$fam"]['limite'] ?? 0);
-    }
-
-    // Condiciones de pago. Las tres de siempre viven en 'descuento_*' desde la
-    // primera versión; las que carga el usuario se guardan como 'pago_*'.
-    // Cada una lleva su nombre escrito a mano, porque el cliente lo muestra tal cual.
-    $descuentos_pago = [
-        'contado' => (float) ($config['descuento_contado']['valor'] ?? 0),
-        '30dias'  => (float) ($config['descuento_30dias']['valor']  ?? 0),
-        '60dias'  => (float) ($config['descuento_60dias']['valor']  ?? 0),
-    ];
-    $etiquetas_pago = [
-        'contado' => 'Contado',
-        '30dias'  => '30 días',
-        '60dias'  => '60 días',
-    ];
-
-    foreach ($config as $clave => $valor) {
-        if (strpos($clave, 'pago_') === 0) {
-            $nombre = substr($clave, strlen('pago_'));
-            $descuentos_pago[$nombre] = (float) ($valor['valor'] ?? 0);
-            $etiquetas_pago[$nombre] = $valor['nombre'] ?? $nombre;
-        }
+    $etiquetas_familia = [];
+    $orden_familias = [];
+    foreach (familiasConfiguradas($pdo) as $clave => $f) {
+        $etiquetas_familia[$clave] = $f['nombre'];
+        $orden_familias[$clave] = $f['orden'];
     }
 
     jsonSalida([
@@ -94,6 +91,10 @@ function rutaConfiguracionesObtener() {
         'descuentos_pago' => $descuentos_pago,
         // Cómo se escribe cada condición de pago en pantalla.
         'etiquetas_pago' => $etiquetas_pago,
+        // Las familias que existen, con su nombre y su orden. El cliente las
+        // toma de acá en lugar de tener su propia copia.
+        'etiquetas_familia' => $etiquetas_familia,
+        'orden_familias' => $orden_familias,
         'stock' => [
             'tiempo_reserva_minutos' => $config['tiempo_reserva_stock']['minutos'] ?? 30,
             'cache_ttl_segundos' => $config['cache_stock_ttl']['segundos'] ?? 300,

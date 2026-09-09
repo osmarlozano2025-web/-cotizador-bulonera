@@ -1,3 +1,9 @@
+/**
+ * Nombres de familia para mostrar mientras la configuración no llegó.
+ *
+ * La lista de verdad vive en la base y viaja en /api/configuraciones; esto es
+ * sólo el respaldo del primer pintado. Usar etiquetaFamilia() para leerla.
+ */
 export const FAMILIAS_LABEL = {
   buloneria: 'Bulonería',
   tolsen: 'Tolsen',
@@ -8,17 +14,19 @@ export const FAMILIAS_LABEL = {
   otros: 'Otros',
 }
 
-/** Cada familia va a su propio depósito. El orden define el número de depósito. */
-export const FAMILIAS = ['buloneria', 'tolsen', 'mechas', 'electrodos', 'escaleras', 'cintas_metricas']
+/** Cómo se escribe una familia. Cae al nombre crudo antes que dejar un hueco. */
+export const etiquetaFamilia = (config, clave) =>
+  config?.etiquetas_familia?.[clave] || FAMILIAS_LABEL[clave] || clave
 
-export const DEPOSITO_NUMERO = {
-  buloneria: 1,
-  tolsen: 2,
-  mechas: 3,
-  electrodos: 4,
-  escaleras: 5,
-  cintas_metricas: 6,
-}
+/**
+ * El número del depósito que despacha esa familia.
+ *
+ * Sale de los depósitos configurados: son dos y cada uno agrupa varias
+ * familias. Antes esto era un mapa fijo de familia a número, que mostraba
+ * "depósito 5" para una familia que en realidad sale del galpón general.
+ */
+export const numeroDeDeposito = (config, familia) =>
+  (config?.depositos || []).find(d => (d.familias || []).includes(familia))?.numero ?? null
 
 function authHeaders() {
   const token = localStorage.getItem('cb_token')

@@ -25,8 +25,11 @@ export default function SubidorFoto({ onAgregar }) {
     try {
       const formData = new FormData()
       formData.append('imagen', archivo)
+      // Leer la foto le cuesta plata a la cuenta de OpenAI: el backend pide sesión.
+      const token = localStorage.getItem('cb_token')
       const res = await fetch('/api/productos/interpretar-imagen', {
         method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       })
       if (!res.ok) {

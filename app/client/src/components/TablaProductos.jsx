@@ -1,4 +1,4 @@
-import { FAMILIAS_LABEL, DEPOSITO_NUMERO, etiquetaPago } from '../utils/aprobaciones'
+import { etiquetaFamilia, numeroDeDeposito, etiquetaPago } from '../utils/aprobaciones'
 import {
   precioUnitario, precioBase, agruparPorFamilia,
   textoTope, limitesDelTope, ajusteDentroDelTope,
@@ -13,6 +13,9 @@ const COLOR_FAMILIA = {
   cintas_metricas: 'bg-lime-500/15 text-lime-300 ring-1 ring-lime-400/25',
   otros: 'bg-slate-100 text-slate-300',
 }
+
+/** Una familia recién creada todavía no tiene color propio: gris antes que nada. */
+const colorFamilia = (familia) => COLOR_FAMILIA[familia] || COLOR_FAMILIA.otros
 
 const money = (n) =>
   `$${(Number(n) || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -91,7 +94,7 @@ export default function TablaProductos({
 
   const eliminar = (idx) => onChange(prev => prev.filter((_, i) => i !== idx))
 
-  const grupos = agruparPorFamilia(items)
+  const grupos = agruparPorFamilia(items, config)
   const ajustePago = Number(config?.descuentos_pago?.[condicionPago]) || 0
 
   const totalBase = items.reduce((s, i) => s + i.cantidad * precioBase(i), 0)
@@ -119,7 +122,7 @@ export default function TablaProductos({
           {grupos.map(({ familia, filas }) => {
             const ajuste = ajusteDe(familia)
             const subtotal = filas.reduce((s, { item }) => s + item.cantidad * unitario(item, familia), 0)
-            const numero = DEPOSITO_NUMERO[familia]
+            const numero = numeroDeDeposito(config, familia)
 
             return (
               <tbody key={familia}>
@@ -132,8 +135,8 @@ export default function TablaProductos({
                             {numero}
                           </span>
                         )}
-                        <span className={`chip ${COLOR_FAMILIA[familia]}`}>
-                          {FAMILIAS_LABEL[familia] || familia}
+                        <span className={`chip ${colorFamilia(familia)}`}>
+                          {etiquetaFamilia(config, familia)}
                         </span>
                         <span className="text-xs text-slate-400">
                           {filas.length} producto{filas.length === 1 ? '' : 's'}
@@ -229,7 +232,7 @@ export default function TablaProductos({
               return (
                 <div key={familia} className="px-4 py-1.5 flex justify-between text-xs">
                   <span className="text-slate-400">
-                    Descuento {FAMILIAS_LABEL[familia] || familia}
+                    Descuento {etiquetaFamilia(config, familia)}
                   </span>
                   <span className={`tabular font-medium ${ajuste < 0 ? 'text-emerald-600' : 'text-amber-400'}`}>
                     {pct(ajuste)}

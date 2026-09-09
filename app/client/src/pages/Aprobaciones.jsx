@@ -3,7 +3,7 @@ import { useLocation, Link } from 'react-router-dom'
 import {
   listarAprobaciones, aprobarFamilia, marcarEnviado, confirmarItem, marcarSinStock,
   guardarBultos,
-  FAMILIAS_LABEL, linkConfirmacion, linkWhatsApp, linkGmail, linkOutlook,
+  etiquetaFamilia, linkConfirmacion, linkWhatsApp, linkGmail, linkOutlook,
   obtenerLog, etiquetaPago, obtenerConfiguraciones,
 } from '../utils/aprobaciones'
 import { buscarProductos } from '../utils/productosApi'
@@ -515,7 +515,7 @@ function TarjetaPedido({ pedido, config, recargar, puedeAprobar, puedeEnviar, us
                     {dep.nombre}
                   </p>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    {dep.familias.map((f) => FAMILIAS_LABEL[f.familia] || f.familia).join(' · ')}
+                    {dep.familias.map((f) => etiquetaFamilia(config, f.familia)).join(' · ')}
                   </p>
                   {dep.pendientes > 0 && !dep.aprobado && (
                     <p className="text-[11px] text-amber-400 mt-0.5">
@@ -552,7 +552,7 @@ function TarjetaPedido({ pedido, config, recargar, puedeAprobar, puedeEnviar, us
                 <div key={sub.familia}>
                   {variasFamilias && (
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-2 mb-0.5">
-                      {FAMILIAS_LABEL[sub.familia] || sub.familia}
+                      {etiquetaFamilia(config, sub.familia)}
                     </p>
                   )}
                   <div className="divide-y divide-white/5">

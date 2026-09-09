@@ -1,5 +1,17 @@
+/**
+ * La ficha del cliente lleva CUIT, teléfono y su descuento: el backend pide
+ * sesión para todo, así que cada llamada viaja con el token.
+ */
+function authHeaders() {
+  const token = localStorage.getItem('cb_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function req(url, options) {
-  const res = await fetch(url, options)
+  const res = await fetch(url, {
+    ...options,
+    headers: { ...authHeaders(), ...(options?.headers || {}) },
+  })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || `Error del servidor (${res.status})`)
   return data

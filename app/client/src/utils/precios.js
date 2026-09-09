@@ -58,18 +58,21 @@ export function precioUnitario(item, config, condicionPago, descCliente, ajuste)
   ])
 }
 
+/** Orden de respaldo, para el primer pintado antes de que llegue la configuración. */
 export const ORDEN_FAMILIAS = { buloneria: 1, tolsen: 2, mechas: 3, electrodos: 4, escaleras: 5, cintas_metricas: 6, otros: 9 }
 
-/** Agrupa los renglones por familia, en el orden de los depósitos. */
-export function agruparPorFamilia(items) {
+/** Agrupa los renglones por familia, en el orden que diga la configuración. */
+export function agruparPorFamilia(items, config) {
+  const orden = config?.orden_familias || ORDEN_FAMILIAS
+
   const grupos = items.reduce((acc, item, idx) => {
-    const fam = ORDEN_FAMILIAS[item.familia] ? item.familia : 'otros'
+    const fam = orden[item.familia] ? item.familia : 'otros'
     ;(acc[fam] ||= []).push({ item, idx })
     return acc
   }, {})
 
   return Object.keys(grupos)
-    .sort((a, b) => ORDEN_FAMILIAS[a] - ORDEN_FAMILIAS[b])
+    .sort((a, b) => (orden[a] ?? 99) - (orden[b] ?? 99))
     .map(familia => ({ familia, filas: grupos[familia] }))
 }
 

@@ -3,8 +3,10 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/response.php';
 require_once __DIR__ . '/../lib/precios.php';
+require_once __DIR__ . '/../lib/depositos.php';
 
-const FAMILIAS_VALIDAS = ['buloneria', 'tolsen', 'mechas', 'electrodos'];
+// Las familias salen de la configuración (lib/precios.php), no de una lista
+// escrita acá: ver familiasConfiguradas().
 
 /**
  * Deja constancia de todo lo que le pasa a un pedido: quién, cuándo y qué.
@@ -45,109 +47,76 @@ function nombreUsuario(PDO $pdo, ?string $usuarioId): ?string
     return $stmt->fetchColumn() ?: null;
 }
 
-/** Orden de los depósitos: 1 Bulonería, 2 Tolsen, 3 Mechas, 4 Electrodos. */
-const ORDEN_FAMILIAS = ['buloneria' => 1, 'tolsen' => 2, 'mechas' => 3, 'electrodos' => 4, 'otros' => 9];
-
-function agruparPorFamilia(array $items): array
+/** Agrupa los renglones por familia, en el orden configurado. */
+function agruparPorFamilia(PDO $pdo, array $items): array
 {
+    $conocidas = familiasConfiguradas($pdo);
+
     $grupos = [];
     foreach ($items as $item) {
-        $fam = in_array($item['familia'] ?? null, FAMILIAS_VALIDAS, true) ? $item['familia'] : 'otros';
+        $fam = isset($conocidas[$item['familia'] ?? '']) ? $item['familia'] : 'otros';
         $grupos[$fam][] = $item;
     }
-    uksort($grupos, fn($a, $b) => (ORDEN_FAMILIAS[$a] ?? 9) <=> (ORDEN_FAMILIAS[$b] ?? 9));
+
+    $orden = fn($f) => $conocidas[$f]['orden'] ?? 99;
+    uksort($grupos, fn($a, $b) => $orden($a) <=> $orden($b));
     return $grupos;
 }
 
-/**
- * Los depósitos configurados, cada uno con las familias que despacha.
- *
- * Familia y depósito son cosas distintas: la familia es del producto y define
- * su descuento (son cuatro), el depósito es de dónde sale la mercadería (son
- * dos). Un depósito agrupa una o más familias, y eso se configura — mover una
- * familia de depósito no requiere tocar ningún pedido ya emitido.
- */
-function depositosConfigurados(PDO $pdo): array
+function ensamblarVarios(PDO $pdo, array $filas, ?array $soloFamilias = null): array
 {
-    static $cache = null;
-    if ($cache !== null) return $cache;
+    if (!$filas) return [];
 
-    $stmt = $pdo->query("SELECT valor FROM configuraciones WHERE clave = 'depositos' AND activo = 1");
-    $fila = $stmt->fetch();
-    $lista = $fila ? json_decode($fila['valor'], true) : null;
+    $ids = array_column($filas, 'id');
+    $subRows = [];
 
-    // Si la configuración falta o quedó corrupta, un solo depósito con todo
-    // adentro: es preferible que se vea todo junto y no que desaparezcan items.
-    if (!is_array($lista) || !$lista) {
-        $lista = [[
-            'numero' => 1,
-            'nombre' => 'Depósito',
-            'familias' => FAMILIAS_VALIDAS,
-            'responsableId' => null,
-        ]];
-    }
+    // Un responsable de depósito ve sólo las familias que su depósito despacha.
+    if ($soloFamilias === null || $soloFamilias) {
+        $sql = 'SELECT * FROM aprobaciones_subpedidos WHERE aprobacionId IN ('
+             . implode(',', array_fill(0, count($ids), '?')) . ')';
+        $params = $ids;
 
-    return $cache = $lista;
-}
-
-/** El depósito al que le toca una familia, o null si ninguno la reclama. */
-function depositoDeFamilia(PDO $pdo, string $familia): ?array
-{
-    foreach (depositosConfigurados($pdo) as $dep) {
-        if (in_array($familia, $dep['familias'] ?? [], true)) return $dep;
-    }
-    return null;
-}
-
-/**
- * Las familias que puede ver este usuario, o null si puede ver todas.
- * Un responsable de depósito ve todas las familias de su depósito.
- */
-function familiasDelResponsable(PDO $pdo, string $usuarioId): ?array
-{
-    foreach (depositosConfigurados($pdo) as $dep) {
-        if (($dep['responsableId'] ?? null) === $usuarioId) {
-            return $dep['familias'] ?? [];
+        if ($soloFamilias !== null) {
+            $sql .= ' AND familia IN (' . implode(',', array_fill(0, count($soloFamilias), '?')) . ')';
+            $params = array_merge($params, $soloFamilias);
         }
-    }
-    return null;
-}
 
-/**
- * Las familias que este usuario puede ver y tocar, o null si no tiene límite.
- * Un responsable de depósito queda acotado a las familias que ese depósito
- * despacha; los administradores ven todo.
- */
-function familiaPermitida(PDO $pdo, array $auth): ?array
-{
-    if (($auth['rol'] ?? '') === 'Administrador') return null; // sin restricción
-    return familiasDelResponsable($pdo, $auth['id']);
+        $stmt = $pdo->prepare($sql . ' ORDER BY id');
+        $stmt->execute($params);
+        $subRows = $stmt->fetchAll();
+    }
+
+    $itemsPorSub = [];
+    if ($subRows) {
+        $subIds = array_column($subRows, 'id');
+        // Los reemplazos van justo detrás del item que sustituyen
+        $stmt = $pdo->prepare(
+            'SELECT * FROM aprobaciones_items WHERE subpedidoId IN ('
+            . implode(',', array_fill(0, count($subIds), '?'))
+            . ') ORDER BY subpedidoId, COALESCE(reemplazaA, id), id'
+        );
+        $stmt->execute($subIds);
+        foreach ($stmt->fetchAll() as $it) $itemsPorSub[$it['subpedidoId']][] = $it;
+    }
+
+    $subsPorPedido = [];
+    foreach ($subRows as $s) $subsPorPedido[$s['aprobacionId']][] = $s;
+
+    return array_map(
+        fn($fila) => armarPedido($pdo, $fila, $subsPorPedido[$fila['id']] ?? [], $itemsPorSub),
+        $filas
+    );
 }
 
 function ensamblarPedido(PDO $pdo, array $aprobacion, ?array $soloFamilias = null): array
 {
-    // Un responsable de depósito ve sólo las familias que su depósito despacha.
-    if ($soloFamilias !== null) {
-        if (!$soloFamilias) {
-            $aprobacion['subpedidos'] = [];
-            $aprobacion['descuento'] = (float) $aprobacion['descuento'];
-            $aprobacion['total'] = (float) $aprobacion['total'];
-            return $aprobacion;
-        }
-        $huecos = implode(',', array_fill(0, count($soloFamilias), '?'));
-        $stmt = $pdo->prepare("SELECT * FROM aprobaciones_subpedidos WHERE aprobacionId = ? AND familia IN ($huecos) ORDER BY id");
-        $stmt->execute(array_merge([$aprobacion['id']], $soloFamilias));
-    } else {
-        $stmt = $pdo->prepare('SELECT * FROM aprobaciones_subpedidos WHERE aprobacionId = ? ORDER BY id');
-        $stmt->execute([$aprobacion['id']]);
-    }
-    $subRows = $stmt->fetchAll();
+    return ensamblarVarios($pdo, [$aprobacion], $soloFamilias)[0];
+}
 
+function armarPedido(PDO $pdo, array $aprobacion, array $subRows, array $itemsPorSub): array
+{
     $subpedidos = [];
     foreach ($subRows as $sub) {
-        // Los reemplazos van justo detrás del item que sustituyen
-        $istmt = $pdo->prepare('SELECT * FROM aprobaciones_items WHERE subpedidoId = ? ORDER BY COALESCE(reemplazaA, id), id');
-        $istmt->execute([$sub['id']]);
         $items = array_map(fn($it) => [
             'id' => (int) $it['id'],
             'codigo' => $it['codigo'],
@@ -172,7 +141,7 @@ function ensamblarPedido(PDO $pdo, array $aprobacion, ?array $soloFamilias = nul
             'descPago1' => (float) ($it['descPago1'] ?? 0),
             'descPago2' => (float) ($it['descPago2'] ?? 0),
             'descCliente' => (float) ($it['descCliente'] ?? 0),
-        ], $istmt->fetchAll());
+        ], $itemsPorSub[$sub['id']] ?? []);
 
         $pendientes = count(array_filter($items, fn($i) => $i['estado'] === 'pendiente'));
         $dep = depositoDeFamilia($pdo, $sub['familia']);
@@ -213,6 +182,10 @@ function ensamblarPedido(PDO $pdo, array $aprobacion, ?array $soloFamilias = nul
     $aprobacion['descuento'] = (float) $aprobacion['descuento'];
     $aprobacion['total'] = (float) $aprobacion['total'];
     $aprobacion['condicionPago'] = $aprobacion['condicionPago'] ?? 'contado';
+    // El nombre viaja con el pedido para que la proforma no tenga que pedir la
+    // configuración entera: la abre el cliente, que no tiene sesión.
+    $aprobacion['condicionPagoEtiqueta'] =
+        configDescuentos($pdo)['etiquetasPago'][$aprobacion['condicionPago']] ?? $aprobacion['condicionPago'];
     $aprobacion['tipoOrigen'] = $aprobacion['tipoOrigen'] ?? 'cotizacion';
     // null = todavía no se contaron, distinto de 0 = no se despachó nada
     $aprobacion['bultos'] = isset($aprobacion['bultos']) && $aprobacion['bultos'] !== null
@@ -287,7 +260,46 @@ function buscarPorToken(PDO $pdo, string $token): ?array
     $stmt = $pdo->prepare('SELECT * FROM aprobaciones WHERE token = ?');
     $stmt->execute([$token]);
     $row = $stmt->fetch();
-    return $row ? ensamblarPedido($pdo, $row) : null;
+    if (!$row) return null;
+
+    $pedido = ensamblarPedido($pdo, $row);
+
+    // La proforma la abre el cliente sin estar logueado. Los datos de su ficha
+    // viajan acá, amparados por el token del link, en lugar de tener que dejar
+    // /clientes abierto a cualquiera para que la página los pueda pedir.
+    if (!empty($row['clienteId'])) {
+        $c = $pdo->prepare('SELECT nombre, razonSocial, cuit, telefono, email, localidad, provincia FROM clientes WHERE id = ?');
+        $c->execute([$row['clienteId']]);
+        $pedido['cliente'] = $c->fetch() ?: null;
+    }
+
+    return $pedido;
+}
+
+/**
+ * Los productos del catálogo que menciona el pedido, indexados por código.
+ *
+ * El precio de venta lo pone el catálogo, no el navegador: lo que llega en el
+ * JSON es lo que el vendedor tenía en pantalla, y puede estar viejo o retocado.
+ */
+function catalogoDelPedido(PDO $pdo, array $items): array
+{
+    $codigos = array_values(array_unique(array_filter(
+        array_map(fn($i) => $i['codigo'] ?? null, $items),
+        fn($c) => $c !== null && $c !== ''
+    )));
+    if (!$codigos) return [];
+
+    $huecos = implode(',', array_fill(0, count($codigos), '?'));
+    $stmt = $pdo->prepare(
+        "SELECT codigo, descripcion, medida, marca, familia, subfamilia, precioGranel
+         FROM productos WHERE codigo IN ($huecos)"
+    );
+    $stmt->execute($codigos);
+
+    $porCodigo = [];
+    foreach ($stmt->fetchAll() as $p) $porCodigo[$p['codigo']] = $p;
+    return $porCodigo;
 }
 
 function rutaAprobacionesCrear(): void
@@ -304,68 +316,98 @@ function rutaAprobacionesCrear(): void
     $pdo = obtenerPDO();
     $cfg = configDescuentos($pdo);
 
-    $descuento = (float) ($cliente['descuento'] ?? 0);
-    // La condición de pago del pedido; si no viene, la habitual del cliente.
-    $condicionPago = condicionPagoValida($pedido['condicionPago'] ?? $cliente['condicionPago'] ?? null);
+    // El descuento y los datos salen de la ficha del cliente. Si se tomaran del
+    // JSON, cualquiera podría cotizar con el descuento que se le ocurra.
+    $stmt = $pdo->prepare('SELECT id, nombre, telefono, email, descuento FROM clientes WHERE id = ?');
+    $stmt->execute([$cliente['id']]);
+    $ficha = $stmt->fetch();
+    if (!$ficha) jsonError('Ese cliente no existe', 404);
+
+    $descuento = (float) $ficha['descuento'];
+    $condicionPago = condicionPagoValida($cfg, $pedido['condicionPago'] ?? null);
     // 'directo' saltea la confirmación del cliente (requisito 6 del análisis).
     $tipoOrigen = ($pedido['tipoOrigen'] ?? '') === 'directo' ? 'directo' : 'cotizacion';
 
     $id = (string) round(microtime(true) * 1000);
-    $token = bin2hex(random_bytes(9));
+    $token = bin2hex(random_bytes(16));
+    $catalogo = catalogoDelPedido($pdo, $pedido['items']);
 
-    $stmt = $pdo->prepare(
-        "INSERT INTO aprobaciones
-         (id, token, clienteId, clienteNombre, clienteTelefono, clienteEmail, descuento, total, estado, condicionPago, tipoOrigen, subtotalLista)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'en_aprobacion', ?, ?, 0)"
-    );
-    $stmt->execute([
-        $id, $token, $cliente['id'] ?? null, $cliente['nombre'] ?? 'Sin cliente',
-        $cliente['telefono'] ?? '', $cliente['email'] ?? '', $descuento,
-        $condicionPago, $tipoOrigen,
-    ]);
-
-    // Ajuste por familia que cargó el vendedor: negativo descuenta, positivo
-    // aumenta. Arranca en 0 y no puede pasar el tope de esa familia.
-    $ajustes = is_array($pedido['descuentosFamilia'] ?? null) ? $pedido['descuentosFamilia'] : [];
-
-    $grupos = agruparPorFamilia($pedido['items']);
-    foreach ($grupos as $familia => $items) {
-        $ajuste = ajusteDentroDelTope(
-            $ajustes[$familia] ?? 0,
-            $cfg['topes'][$familia] ?? 0
-        );
-
+    // Un pedido a medio grabar no sirve para nada: o entra entero o no entra.
+    $pdo->beginTransaction();
+    try {
         $stmt = $pdo->prepare(
-            'INSERT INTO aprobaciones_subpedidos (aprobacionId, familia, aprobado, descuentoFamilia)
-             VALUES (?, ?, 0, ?)'
+            "INSERT INTO aprobaciones
+             (id, token, clienteId, clienteNombre, clienteTelefono, clienteEmail, descuento, total, estado, condicionPago, tipoOrigen, subtotalLista)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'en_aprobacion', ?, ?, 0)"
         );
-        $stmt->execute([$id, $familia, $ajuste]);
-        $subpedidoId = $pdo->lastInsertId();
+        $stmt->execute([
+            $id, $token, $ficha['id'], $ficha['nombre'],
+            $ficha['telefono'] ?? '', $ficha['email'] ?? '', $descuento,
+            $condicionPago, $tipoOrigen,
+        ]);
 
-        foreach ($items as $it) {
-            // El desglose se calcula acá y queda congelado: si mañana cambian
-            // los porcentajes, este pedido sigue mostrando los suyos.
-            $d = calcularDesglose(
-                ['familia' => $it['familia'] ?? $familia] + $it,
-                $cfg,
-                $condicionPago,
-                $descuento,
-                $ajuste
+        // Ajuste por familia que cargó el vendedor: negativo descuenta, positivo
+        // aumenta. Arranca en 0 y no puede pasar el tope de esa familia.
+        $ajustes = is_array($pedido['descuentosFamilia'] ?? null) ? $pedido['descuentosFamilia'] : [];
+
+        $grupos = agruparPorFamilia($pdo, $pedido['items']);
+        foreach ($grupos as $familia => $items) {
+            $ajuste = ajusteDentroDelTope(
+                $ajustes[$familia] ?? 0,
+                $cfg['topes'][$familia] ?? 0
             );
 
             $stmt = $pdo->prepare(
-                'INSERT INTO aprobaciones_items
-                 (subpedidoId, codigo, descripcion, medida, marca, familia, subfamilia, precioGranel, cantidad,
-                  precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO aprobaciones_subpedidos (aprobacionId, familia, aprobado, descuentoFamilia)
+                 VALUES (?, ?, 0, ?)'
             );
-            $stmt->execute([
-                $subpedidoId, $it['codigo'] ?? null, $it['descripcion'], $it['medida'] ?? null, $it['marca'] ?? null,
-                $it['familia'] ?? $familia, $it['subfamilia'] ?? null, $it['precioGranel'] ?? $it['precio'] ?? 0, $it['cantidad'] ?? 1,
-                $d['precioLista'], $d['descAjusteFamilia'],
-                $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'],
-            ]);
+            $stmt->execute([$id, $familia, $ajuste]);
+            $subpedidoId = $pdo->lastInsertId();
+
+            foreach ($items as $it) {
+                // Si el producto está en el catálogo manda el catálogo. Uno
+                // suelto —cargado a mano o leído de una foto— va como viene.
+                $delCatalogo = $catalogo[$it['codigo'] ?? ''] ?? null;
+                $renglon = [
+                    'codigo' => $it['codigo'] ?? null,
+                    'descripcion' => $delCatalogo['descripcion'] ?? $it['descripcion'] ?? null,
+                    'medida' => $delCatalogo['medida'] ?? $it['medida'] ?? null,
+                    'marca' => $delCatalogo['marca'] ?? $it['marca'] ?? null,
+                    'familia' => $delCatalogo['familia'] ?? $it['familia'] ?? $familia,
+                    'subfamilia' => $delCatalogo['subfamilia'] ?? $it['subfamilia'] ?? null,
+                    'precioGranel' => (float) ($delCatalogo['precioGranel'] ?? $it['precioGranel'] ?? $it['precio'] ?? 0),
+                    'cantidad' => (float) ($it['cantidad'] ?? 1),
+                ];
+                if ($renglon['descripcion'] === null || $renglon['descripcion'] === '') {
+                    throw new RuntimeException('Hay un renglón sin descripción');
+                }
+                if ($renglon['cantidad'] <= 0) {
+                    throw new RuntimeException('Hay un renglón con cantidad cero');
+                }
+
+                // El desglose se calcula acá y queda congelado: si mañana cambian
+                // los porcentajes, este pedido sigue mostrando los suyos.
+                $d = calcularDesglose($renglon, $cfg, $condicionPago, $descuento, $ajuste);
+
+                $stmt = $pdo->prepare(
+                    'INSERT INTO aprobaciones_items
+                     (subpedidoId, codigo, descripcion, medida, marca, familia, subfamilia, precioGranel, cantidad,
+                      precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                );
+                $stmt->execute([
+                    $subpedidoId, $renglon['codigo'], $renglon['descripcion'], $renglon['medida'], $renglon['marca'],
+                    $renglon['familia'], $renglon['subfamilia'], $renglon['precioGranel'], $renglon['cantidad'],
+                    $d['precioLista'], $d['descAjusteFamilia'],
+                    $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'],
+                ]);
+            }
         }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        jsonError($e->getMessage(), 400);
     }
 
     recalcularTotal($pdo, $id);
@@ -389,15 +431,25 @@ function rutaAprobacionesListar(): void
     $pdo = obtenerPDO();
     $soloFamilias = familiaPermitida($pdo, $auth);
 
+    // De a tandas: traer el historial entero con todos sus renglones era
+    // barato con veinte pedidos y deja de serlo solo, sin que nadie lo note.
+    $limite = min(max((int) ($_GET['limite'] ?? 50), 1), 200);
+    $desde = max((int) ($_GET['desde'] ?? 0), 0);
+
     $estado = $_GET['estado'] ?? '';
     if ($estado !== '') {
-        $stmt = $pdo->prepare('SELECT * FROM aprobaciones WHERE estado = ? ORDER BY fechaCreacion DESC');
-        $stmt->execute([$estado]);
+        $stmt = $pdo->prepare('SELECT * FROM aprobaciones WHERE estado = ? ORDER BY fechaCreacion DESC LIMIT ? OFFSET ?');
+        $stmt->bindValue(1, $estado);
+        $stmt->bindValue(2, $limite, PDO::PARAM_INT);
+        $stmt->bindValue(3, $desde, PDO::PARAM_INT);
     } else {
-        $stmt = $pdo->query('SELECT * FROM aprobaciones ORDER BY fechaCreacion DESC');
+        $stmt = $pdo->prepare('SELECT * FROM aprobaciones ORDER BY fechaCreacion DESC LIMIT ? OFFSET ?');
+        $stmt->bindValue(1, $limite, PDO::PARAM_INT);
+        $stmt->bindValue(2, $desde, PDO::PARAM_INT);
     }
+    $stmt->execute();
 
-    $pedidos = array_map(fn($r) => ensamblarPedido($pdo, $r, $soloFamilias), $stmt->fetchAll());
+    $pedidos = ensamblarVarios($pdo, $stmt->fetchAll(), $soloFamilias);
 
     // Al responsable de un depósito no le mostramos pedidos que no lo involucran
     if ($soloFamilias !== null) {
@@ -509,6 +561,12 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
             $cab->execute([$id]);
             $pedido = $cab->fetch() ?: ['condicionPago' => 'contado', 'descuento' => 0];
 
+            // El precio lo pone el catálogo, igual que al crear el pedido.
+            $delCatalogo = catalogoDelPedido($pdo, [$reemplazo])[$reemplazo['codigo'] ?? ''] ?? null;
+            $reemplazo['precioGranel'] = (float) (
+                $delCatalogo['precioGranel'] ?? $reemplazo['precioGranel'] ?? $reemplazo['precio'] ?? 0
+            );
+
             // El reemplazo hereda el ajuste de su familia en este pedido.
             $d = calcularDesglose(
                 ['familia' => $item['familia']] + $reemplazo,
@@ -532,7 +590,7 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
                 $reemplazo['marca'] ?? null,
                 $item['familia'],
                 $reemplazo['subfamilia'] ?? null,
-                $reemplazo['precioGranel'] ?? $reemplazo['precio'] ?? 0,
+                $reemplazo['precioGranel'],
                 $reemplazo['cantidad'] ?? $item['cantidad'],
                 $reemplazo['cantidad'] ?? $item['cantidad'],
                 $itemId,
@@ -664,6 +722,13 @@ function rutaAprobacionesConfirmarPost(string $token): void
 function rutaAprobacionesMarcarEnviado(string $id): void
 {
     $auth = requireAuth();
+
+    // Mandarle la cotización al cliente es una atribución comercial: el
+    // depósito aprueba stock, no habla con el cliente.
+    $puedeEnviar = ($auth['rol'] ?? '') === 'Administrador'
+        || !empty($auth['permisos']['puedeEnviarCliente']);
+    if (!$puedeEnviar) jsonError('No tenés permiso para enviar cotizaciones al cliente', 403);
+
     $pdo = obtenerPDO();
 
     $stmt = $pdo->prepare('UPDATE aprobaciones SET fechaEnvioCliente = NOW() WHERE id = ? AND fechaEnvioCliente IS NULL');
@@ -735,8 +800,24 @@ function rutaAprobacionesBultos(string $id): void
 /** GET /aprobaciones/:id/log — historial completo del pedido. */
 function rutaAprobacionesLog(string $id): void
 {
-    requireAuth();
+    $auth = requireAuth();
     $pdo = obtenerPDO();
+
+    // El historial cuenta precios y descuentos: el responsable de un depósito
+    // sólo puede leer el de los pedidos en los que trabaja.
+    $soloFamilias = familiaPermitida($pdo, $auth);
+    if ($soloFamilias !== null) {
+        $suyo = false;
+        if ($soloFamilias) {
+            $stmt = $pdo->prepare(
+                'SELECT COUNT(*) FROM aprobaciones_subpedidos WHERE aprobacionId = ? AND familia IN ('
+                . implode(',', array_fill(0, count($soloFamilias), '?')) . ')'
+            );
+            $stmt->execute(array_merge([$id], $soloFamilias));
+            $suyo = (int) $stmt->fetchColumn() > 0;
+        }
+        if (!$suyo) jsonError('Este pedido no tiene productos de tu depósito', 403);
+    }
 
     $stmt = $pdo->prepare(
         'SELECT id, evento, estadoAnterior, estadoNuevo, itemId, usuarioNombre, detalle, fecha

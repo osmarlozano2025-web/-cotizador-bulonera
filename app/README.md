@@ -95,9 +95,21 @@ Frontend (React + Vite)     Backend (PHP)               Database (MySQL)
 
 ### 5. **Gestión**
 - **Clientes:** CRUD, tipos de descuento (A/B/C/D), historial de pedidos
-- **Productos:** 4724 artículos en 3 familias, búsqueda por código/medida
+- **Productos:** 4724 artículos, búsqueda por código/medida sobre el índice de texto completo
 - **Personal:** Crear usuarios, asignar roles/permisos por sección
 - **Integraciones:** API keys de OpenAI (guardadas en BD, no en código)
+- **Configuraciones:** topes de descuento por familia, condiciones de pago y
+  responsables de cada depósito
+
+### Familias y condiciones de pago
+
+Las dos listas son datos, no código. Las familias viven en la clave `familias`
+de `configuraciones` y las condiciones de pago que se agregan desde la pantalla
+se guardan como `pago_<nombre>`; el motor de precios las lee de ahí y el
+frontend las recibe en `/api/configuraciones`. Agregar una familia es cargarla
+en la base: no hay listas escritas a mano que actualizar en paralelo. Una
+familia que todavía no tenga depósito asignado la despacha el primero, para que
+ningún pedido quede sin nadie que lo apruebe.
 
 ---
 
@@ -106,12 +118,15 @@ Frontend (React + Vite)     Backend (PHP)               Database (MySQL)
 | Aspecto | Implementación |
 |:--------|:---------------|
 | **Autenticación** | JWT firmado (HS256), 30 días |
-| **Permisos** | RBAC (rol-based) + permisos por sección |
+| **Endpoints** | Todos piden sesión. Las únicas rutas abiertas son el login y las dos del link del cliente (`/aprobaciones/confirmar/:token`), donde el token del link es la autorización |
+| **Permisos** | El rol y los permisos se releen de la base en cada pedido: dar de baja a alguien o cambiarle el rol tiene efecto en el acto, sin esperar a que venza su token |
+| **Precios** | El precio sale del catálogo y el descuento de la ficha del cliente, nunca de lo que mande el navegador |
 | **Protección BD** | PDO prepared statements, character set UTF-8 |
 | **Archivos sensibles** | `.env` bloqueado con `.htaccess` (403 Forbidden) |
 | **Header Authorization** | Forzado en `.htaccess` (Apache fix) |
 | **Sesión persistente** | localStorage + renovación en boot (solo si token válido) |
 | **Contraseñas** | bcryptjs (10 rounds) |
+| **Errores** | El detalle queda en el log del servidor; al cliente le llega un aviso corto con un número de referencia para poder cruzarlo |
 
 ---
 
@@ -243,7 +258,9 @@ sequenceDiagram
 
 ### Monitoreo
 - Ver errores: `hPanel` → Base de datos → phpMyAdmin → revisar logs
-- API errors: `api-php/` no tiene logging aún (agregar si es necesario)
+- Errores de la API: van al log de errores de PHP (`error_log`). Cuando alguien
+  avisa que algo falló, la pantalla le muestra una referencia de ocho caracteres:
+  buscando esa referencia en el log aparece el pedido y el detalle completo.
 
 ### Actualizaciones Futuras
 - [ ] CSV import para Clientes/Productos (cada 15 días)

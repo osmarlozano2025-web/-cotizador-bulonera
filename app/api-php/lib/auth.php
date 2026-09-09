@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/response.php';
+require_once __DIR__ . '/db.php';
 
 function base64UrlEncode(string $data): string
 {
@@ -65,11 +66,33 @@ function obtenerAuth(): ?array
     return verificarToken(substr($header, 7));
 }
 
+/**
+ * Exige sesión y devuelve al usuario tal como está hoy en la base.
+ *
+ * El token dura treinta días y lleva el rol adentro. Si sólo se mirara el
+ * token, dar de baja a alguien o bajarle el rol no tendría efecto hasta que
+ * venciera: seguiría entrando un mes con los permisos viejos. Por eso se relee
+ * el usuario en cada pedido — una consulta por request, cacheada.
+ */
 function requireAuth(): array
 {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
     $auth = obtenerAuth();
     if (!$auth) jsonError('No autenticado', 401);
-    return $auth;
+
+    $stmt = obtenerPDO()->prepare('SELECT rol, permisos, activo FROM personal WHERE id = ?');
+    $stmt->execute([$auth['id']]);
+    $usuario = $stmt->fetch();
+
+    if (!$usuario) jsonError('Tu usuario ya no existe', 401);
+    if (!(int) $usuario['activo']) jsonError('Tu usuario está dado de baja', 401);
+
+    $auth['rol'] = $usuario['rol'];
+    $auth['permisos'] = json_decode($usuario['permisos'], true) ?: [];
+
+    return $cache = $auth;
 }
 
 function requireRole(array $auth, array $rolesPermitidos): void
