@@ -9,7 +9,8 @@ import {
 import { buscarProductos } from '../utils/productosApi'
 import { useAuth } from '../context/AuthContext'
 
-const money = (n) => `$${Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`
+// Depósito prepara stock, no cotiza: en esta pantalla no se muestra ningún
+// precio ni descuento.
 
 /** Buscador acotado a la familia del depósito, para elegir un producto similar. */
 function BuscarReemplazo({ familia, onElegir, onCancelar }) {
@@ -56,7 +57,7 @@ function BuscarReemplazo({ familia, onElegir, onCancelar }) {
             >
               <p className="text-xs font-medium text-slate-100">{p.descripcion}</p>
               <p className="text-[11px] text-slate-400">
-                {p.codigo} {p.medida ? `· ${p.medida}` : ''} · {money(p.precioGranel ?? p.precio)}
+                {p.codigo} {p.medida ? `· ${p.medida}` : ''}
               </p>
             </button>
           ))}
@@ -145,11 +146,9 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
               </span>
             )}
           </p>
+          {/* Depósito prepara stock, no cotiza: acá no va ningún precio. */}
           <p className="text-[11px] text-slate-400">
-            {item.codigo} {item.medida ? `· ${item.medida}` : ''} · {money(item.precioNeto || item.precioGranel)}
-            {item.precioLista > (item.precioNeto || item.precioGranel) && (
-              <span className="line-through ml-1">{money(item.precioLista)}</span>
-            )}
+            {item.codigo} {item.medida ? `· ${item.medida}` : ''}
           </p>
 
           {/* Cómo sale del depósito: son bultos cerrados, no unidades sueltas.
@@ -349,8 +348,20 @@ function Historial({ pedidoId }) {
  * y va en el pedido entero — no por depósito — porque el bulto es lo que sale
  * en el camión hacia el cliente.
  */
+/**
+ * Cuenta sola lo que ya se puede contar: cada renglón en granel o fracción
+ * ya sabe en cuántos bultos cerrados sale. Si nadie cargó los bultos a mano
+ * todavía, el campo arranca con esa suma en vez de en blanco — el depósito
+ * confirma con un click o la corrige si hace falta (sueltos, cajas mixtas).
+ */
 function Bultos({ pedido, recargar }) {
-  const [valor, setValor] = useState(pedido.bultos == null ? '' : String(pedido.bultos))
+  const sugerido = pedido.totales?.bultosSugeridos || 0
+  const esSugerencia = pedido.bultos == null && sugerido > 0
+
+  const [valor, setValor] = useState(
+    pedido.bultos != null ? String(pedido.bultos) : esSugerencia ? String(sugerido) : ''
+  )
+  const [tocado, setTocado] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [error, setError] = useState(null)
@@ -388,15 +399,25 @@ function Bultos({ pedido, recargar }) {
           value={valor}
           placeholder="—"
           disabled={guardando}
-          onChange={(e) => { setValor(e.target.value); setError(null) }}
+          onChange={(e) => { setValor(e.target.value); setTocado(true); setError(null) }}
           onBlur={guardar}
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-          title="En cuántos bultos se despacha este pedido"
-          className="tabular w-16 rounded-lg border border-white/15 bg-white/5 px-2 py-1
-                     text-sm text-right font-semibold text-slate-100
-                     focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] disabled:opacity-50 transition"
+          title={
+            esSugerencia && !tocado
+              ? `Contados solos de granel y fracción: ${sugerido}. Confirmá o corregí.`
+              : 'En cuántos bultos se despacha este pedido'
+          }
+          className={`tabular w-16 rounded-lg border px-2 py-1 text-sm text-right font-semibold
+                     focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] disabled:opacity-50 transition ${
+            esSugerencia && !tocado
+              ? 'border-amber-400/50 bg-amber-500/10 text-amber-200'
+              : 'border-white/15 bg-white/5 text-slate-100'
+          }`}
         />
       </label>
+      {esSugerencia && !tocado && !guardando && (
+        <span className="text-[11px] text-amber-300">a confirmar</span>
+      )}
       {guardado && <span className="text-[11px] font-semibold text-emerald-400">Guardado</span>}
       {cambio && !guardado && !guardando && (
         <span className="text-[11px] text-slate-400">Enter para guardar</span>
@@ -442,6 +463,37 @@ function agruparPorDeposito(subpedidos) {
     }))
 }
 
+/**
+ * Ficha del cliente completa, sin ningún precio ni descuento — eso queda en
+ * la ficha del cliente que ve el vendedor, no en lo que ve el depósito.
+ * Cada dato se muestra sólo si está cargado, para no dejar huecos vacíos.
+ */
+function DatosCliente({ cliente, telefono, email }) {
+  const campos = [
+    ['Razón social', cliente?.razonSocial && cliente.razonSocial !== cliente?.nombre ? cliente.razonSocial : null],
+    ['CUIT', cliente?.cuit],
+    ['Teléfono', cliente?.telefono || telefono],
+    ['Email', cliente?.email || email],
+    ['Domicilio', cliente?.domicilio],
+    ['Localidad', [cliente?.localidad, cliente?.provincia].filter(Boolean).join(', ') || null],
+    ['Código', cliente?.codigoCliente],
+    ['Zona', cliente?.zona],
+    ['Vendedor', cliente?.vendedor],
+  ].filter(([, valor]) => valor)
+
+  if (!campos.length) return null
+
+  return (
+    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-[11px]">
+      {campos.map(([etiqueta, valor]) => (
+        <p key={etiqueta} className="text-slate-400 truncate">
+          <span className="text-slate-500">{etiqueta}:</span> <span className="text-slate-300">{valor}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
 function TarjetaPedido({ pedido, config, recargar, puedeAprobar, puedeEnviar, usuarioId }) {
   const [aprobando, setAprobando] = useState(null)
   const [errorFamilia, setErrorFamilia] = useState({})
@@ -480,20 +532,18 @@ function TarjetaPedido({ pedido, config, recargar, puedeAprobar, puedeEnviar, us
               </span>
             )}
           </p>
+          {/* Depósito prepara stock: fecha y condición de pago sirven para
+              organizarse, pero ningún monto — eso es del vendedor y del cliente. */}
           <p className="text-xs text-slate-400">
-            {new Date(pedido.fechaCreacion).toLocaleString('es-AR')} · {money(pedido.total)}
+            {new Date(pedido.fechaCreacion).toLocaleString('es-AR')}
             {' · '}Pago {etiquetaPago(config, pedido.condicionPago)}
+            {pedido.totales?.itemsSinStock > 0 && (
+              <span className="text-amber-400">
+                {' · '}{pedido.totales.itemsSinStock} sin stock
+              </span>
+            )}
           </p>
-          {pedido.totales?.ahorro > 0 && (
-            <p className="text-[11px] text-emerald-400">
-              Lista {money(pedido.totales.subtotalLista)} · descuentos {pedido.totales.descuentoEfectivo}%
-              {pedido.totales.itemsSinStock > 0 && (
-                <span className="text-amber-400">
-                  {' · '}{pedido.totales.itemsSinStock} sin stock (no suma)
-                </span>
-              )}
-            </p>
-          )}
+          <DatosCliente cliente={pedido.cliente} telefono={pedido.clienteTelefono} email={pedido.clienteEmail} />
         </div>
 
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">

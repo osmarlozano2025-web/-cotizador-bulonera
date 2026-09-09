@@ -33,6 +33,38 @@ function agruparPorDeposito(subpedidos) {
   return [...porNumero.values()].sort((a, b) => (a.numero ?? 99) - (b.numero ?? 99))
 }
 
+/** Ficha completa del cliente para el remito. Sin precios: eso no es de acá. */
+function DatosCliente({ pedido, renglones }) {
+  const c = pedido.cliente
+  const campos = [
+    ['Razón social', c?.razonSocial && c.razonSocial !== c?.nombre ? c.razonSocial : null],
+    ['CUIT', c?.cuit],
+    ['Teléfono', c?.telefono || pedido.clienteTelefono],
+    ['Domicilio', c?.domicilio],
+    ['Localidad', [c?.localidad, c?.provincia].filter(Boolean).join(', ') || null],
+    ['Código', c?.codigoCliente],
+  ].filter(([, valor]) => valor)
+
+  return (
+    <div className="border-b border-gray-200 pb-3 mb-4 text-sm">
+      <div className="flex items-start justify-between">
+        <p><span className="text-gray-400">Cliente:</span> <span className="font-bold text-base">{pedido.clienteNombre}</span></p>
+        <p className="text-right">
+          <span className="text-gray-400">Renglones:</span>{' '}
+          <span className="font-medium">{renglones}</span>
+        </p>
+      </div>
+      {campos.length > 0 && (
+        <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 mt-1.5 text-xs">
+          {campos.map(([etiqueta, valor]) => (
+            <p key={etiqueta}><span className="text-gray-400">{etiqueta}:</span> {valor}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function NotaDeposito() {
   const { id } = useParams()
   const [pedido, setPedido] = useState(null)
@@ -100,20 +132,15 @@ export default function NotaDeposito() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-              <p><span className="text-gray-400">Cliente:</span> <span className="font-medium">{pedido.clienteNombre}</span></p>
-              <p className="text-right">
-                <span className="text-gray-400">Renglones:</span>{' '}
-                <span className="font-medium">{entregables.length}</span>
-              </p>
-            </div>
+            <DatosCliente pedido={pedido} renglones={entregables.length} />
 
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b-2 border-gray-300 text-xs text-gray-500 uppercase">
                   <th className="text-left py-1.5 font-semibold w-24">Código</th>
                   <th className="text-left py-1.5 font-semibold">Descripción</th>
-                  <th className="text-left py-1.5 font-semibold w-32">Medida</th>
+                  <th className="text-left py-1.5 font-semibold w-28">Medida</th>
+                  <th className="text-left py-1.5 font-semibold w-32">Modo</th>
                   <th className="text-right py-1.5 font-semibold w-20">Cantidad</th>
                   <th className="w-16"></th>
                 </tr>
@@ -129,6 +156,27 @@ export default function NotaDeposito() {
                       )}
                     </td>
                     <td className="py-1.5 text-gray-500">{it.medida || '—'}</td>
+                    {/* Granel o fracción, y en cuántos bultos cerrados: es lo
+                        que hay que saber para juntar el pedido sin abrir cajas
+                        de más. */}
+                    <td className="py-1.5 text-xs text-gray-600">
+                      {it.modoVenta && it.modoVenta !== 'unidad' ? (
+                        <>
+                          <span className={`inline-block px-1.5 py-0.5 rounded font-medium ${
+                            it.modoVenta === 'granel'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-sky-50 text-sky-700 border border-sky-200'
+                          }`}>
+                            {it.modoVenta === 'granel' ? 'Granel' : 'Fracción'}
+                          </span>
+                          {it.bultos > 0 && (
+                            <span className="block text-gray-400 mt-0.5">
+                              {it.bultos} × {it.modoVenta === 'granel' ? it.unidadGranel : it.unidadFraccion}
+                            </span>
+                          )}
+                        </>
+                      ) : '—'}
+                    </td>
                     <td className="py-1.5 text-right font-bold text-base">{cantidadAEntregar(it)}</td>
                     {/* Casillero para tildar a mano al preparar */}
                     <td className="py-1.5 text-right">
@@ -142,6 +190,7 @@ export default function NotaDeposito() {
                     <td className="py-1.5 font-mono text-xs line-through">{it.codigo || '—'}</td>
                     <td className="py-1.5 line-through">{it.descripcion}</td>
                     <td className="py-1.5 line-through">{it.medida || '—'}</td>
+                    <td></td>
                     <td className="py-1.5 text-right font-semibold">SIN STOCK</td>
                     <td></td>
                   </tr>

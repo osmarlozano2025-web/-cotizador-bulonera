@@ -63,11 +63,38 @@ function agruparPorFamilia(PDO $pdo, array $items): array
     return $grupos;
 }
 
+/**
+ * Los datos de la ficha del cliente, uno por cada pedido de la tanda.
+ *
+ * Antes cada pantalla pedía lo suyo por separado (la proforma pública tenía
+ * su propia consulta con seis campos; Depósito no pedía nada y sólo tenía el
+ * nombre suelto que quedó copiado en `aprobaciones`). Ahora sale de acá para
+ * las tres: precios aparte, pero la ficha completa del cliente es la misma
+ * en todos lados.
+ */
+function clientesDelLote(PDO $pdo, array $clienteIds): array
+{
+    $ids = array_values(array_unique(array_filter($clienteIds)));
+    if (!$ids) return [];
+
+    $stmt = $pdo->prepare(
+        'SELECT id, nombre, razonSocial, cuit, telefono, email, domicilio,
+                localidad, provincia, codigoCliente, zona, vendedor
+         FROM clientes WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')'
+    );
+    $stmt->execute($ids);
+
+    $porId = [];
+    foreach ($stmt->fetchAll() as $c) $porId[$c['id']] = $c;
+    return $porId;
+}
+
 function ensamblarVarios(PDO $pdo, array $filas, ?array $soloFamilias = null): array
 {
     if (!$filas) return [];
 
     $ids = array_column($filas, 'id');
+    $clientes = clientesDelLote($pdo, array_column($filas, 'clienteId'));
     $subRows = [];
 
     // Un responsable de depósito ve sólo las familias que su depósito despacha.
@@ -103,7 +130,10 @@ function ensamblarVarios(PDO $pdo, array $filas, ?array $soloFamilias = null): a
     foreach ($subRows as $s) $subsPorPedido[$s['aprobacionId']][] = $s;
 
     return array_map(
-        fn($fila) => armarPedido($pdo, $fila, $subsPorPedido[$fila['id']] ?? [], $itemsPorSub),
+        fn($fila) => armarPedido(
+            $pdo, $fila, $subsPorPedido[$fila['id']] ?? [], $itemsPorSub,
+            $clientes[$fila['clienteId']] ?? null
+        ),
         $filas
     );
 }
@@ -113,7 +143,7 @@ function ensamblarPedido(PDO $pdo, array $aprobacion, ?array $soloFamilias = nul
     return ensamblarVarios($pdo, [$aprobacion], $soloFamilias)[0];
 }
 
-function armarPedido(PDO $pdo, array $aprobacion, array $subRows, array $itemsPorSub): array
+function armarPedido(PDO $pdo, array $aprobacion, array $subRows, array $itemsPorSub, ?array $cliente = null): array
 {
     $subpedidos = [];
     foreach ($subRows as $sub) {
@@ -224,7 +254,15 @@ function armarPedido(PDO $pdo, array $aprobacion, array $subRows, array $itemsPo
         'ahorro' => round($aLista - $aNeto, 2),
         'descuentoEfectivo' => $aLista > 0 ? round((1 - $aNeto / $aLista) * 100, 2) : 0.0,
         'itemsSinStock' => $sinStock,
+        // Suma de los bultos de granel y fracción de lo que se entrega. Es lo
+        // que ya se puede contar sin haber mirado el pedido: el depósito lo
+        // confirma o lo corrige en vez de arrancar de cero.
+        'bultosSugeridos' => array_sum(array_map(fn($i) => $i['bultos'] ?? 0, $entregables)),
     ];
+
+    // La ficha del cliente. Depósito y la proforma la necesitan completa;
+    // ninguna de las dos trae precios ni descuentos, eso queda afuera acá.
+    $aprobacion['cliente'] = $cliente;
 
     return $aprobacion;
 }
@@ -268,20 +306,11 @@ function buscarPorToken(PDO $pdo, string $token): ?array
     $stmt = $pdo->prepare('SELECT * FROM aprobaciones WHERE token = ?');
     $stmt->execute([$token]);
     $row = $stmt->fetch();
-    if (!$row) return null;
-
-    $pedido = ensamblarPedido($pdo, $row);
-
-    // La proforma la abre el cliente sin estar logueado. Los datos de su ficha
-    // viajan acá, amparados por el token del link, en lugar de tener que dejar
-    // /clientes abierto a cualquiera para que la página los pueda pedir.
-    if (!empty($row['clienteId'])) {
-        $c = $pdo->prepare('SELECT nombre, razonSocial, cuit, telefono, email, localidad, provincia FROM clientes WHERE id = ?');
-        $c->execute([$row['clienteId']]);
-        $pedido['cliente'] = $c->fetch() ?: null;
-    }
-
-    return $pedido;
+    // La proforma la abre el cliente sin estar logueado: la ficha completa
+    // viaja amparada por el token del link, en vez de dejar /clientes abierto
+    // a cualquiera para que la página la pida por su cuenta. ensamblarPedido
+    // ya la trae — es la misma que ve Depósito, sin precios ni descuentos.
+    return $row ? ensamblarPedido($pdo, $row) : null;
 }
 
 /**

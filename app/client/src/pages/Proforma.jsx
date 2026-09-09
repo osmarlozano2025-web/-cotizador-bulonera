@@ -177,13 +177,20 @@ export default function Proforma() {
           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Cliente</p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-0.5 text-xs text-gray-700">
             <p><span className="text-gray-400">Nombre:</span> {pedido.clienteNombre}</p>
-            {cliente?.razonSocial && <p><span className="text-gray-400">Razón Social:</span> {cliente.razonSocial}</p>}
+            {cliente?.razonSocial && cliente.razonSocial !== pedido.clienteNombre && (
+              <p><span className="text-gray-400">Razón Social:</span> {cliente.razonSocial}</p>
+            )}
             {cliente?.cuit && <p><span className="text-gray-400">CUIT:</span> {cliente.cuit}</p>}
+            {cliente?.domicilio && <p><span className="text-gray-400">Domicilio:</span> {cliente.domicilio}</p>}
             {(cliente?.localidad || cliente?.provincia) && (
               <p><span className="text-gray-400">Ubicación:</span> {[cliente?.localidad, cliente?.provincia].filter(Boolean).join(', ')}</p>
             )}
-            {pedido.clienteTelefono && <p><span className="text-gray-400">Teléfono:</span> {pedido.clienteTelefono}</p>}
-            {pedido.clienteEmail && <p><span className="text-gray-400">Email:</span> {pedido.clienteEmail}</p>}
+            {(cliente?.telefono || pedido.clienteTelefono) && (
+              <p><span className="text-gray-400">Teléfono:</span> {cliente?.telefono || pedido.clienteTelefono}</p>
+            )}
+            {(cliente?.email || pedido.clienteEmail) && (
+              <p><span className="text-gray-400">Email:</span> {cliente?.email || pedido.clienteEmail}</p>
+            )}
           </div>
         </div>
 
