@@ -1,0 +1,312 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Tema oscuro con paneles de vidrio esmerilado.
+ *
+ * El fondo es una imagen fija, oscurecida y desenfocada, y todo lo de arriba
+ * flota sobre ella. Los paneles con datos densos (tablas, formularios) usan
+ * más opacidad que los decorativos: sobre una foto, el texto chico necesita
+ * una superficie que lo sostenga o se vuelve ilegible.
+ */
+
+:root {
+  --cb-500: #3d8bfd;
+  --cb-600: #2f6fb5;
+  --cb-700: #1b3a5c;
+  --cb-900: #0b1420;
+
+  /* Vidrio */
+  --vidrio: rgba(255, 255, 255, 0.055);
+  --vidrio-fuerte: rgba(17, 26, 40, 0.72);
+  --borde: rgba(255, 255, 255, 0.10);
+  --borde-suave: rgba(255, 255, 255, 0.06);
+}
+
+html {
+  background-color: var(--cb-900);
+}
+
+/*
+ * El color de fondo va sólo en <html>. Si también lo lleva <body>, tapa a los
+ * pseudo-elementos del fondo y no se ve nada.
+ */
+body {
+  @apply text-slate-200 antialiased;
+  min-height: 100vh;
+}
+
+/* La app va por encima de las dos capas decorativas. */
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * Capa de fondo. Mientras no exista la imagen, el degradado y la grilla
+ * tipo plano de taller sostienen la estética solos.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-color: #0b1420;
+  background-image:
+    radial-gradient(1200px 700px at 70% 10%, rgba(61, 139, 253, 0.16), transparent 60%),
+    radial-gradient(900px 600px at 10% 90%, rgba(27, 58, 92, 0.35), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: auto, auto, 44px 44px, 44px 44px;
+}
+
+/*
+ * Los bulones, como marca de agua.
+ *
+ * La imagen es cuadrada y tiene fondo claro de plano técnico, así que no
+ * sirve estirada a pantalla completa: quedaría un bloque blanco recortado.
+ * Va centrada, contenida, y con una máscara radial que le come los bordes
+ * para que se funda con el fondo en vez de cortarse en un cuadrado.
+ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/fondo-bulones.png');
+  background-repeat: no-repeat;
+  background-position: center 46%;
+  background-size: min(76vh, 60vw) auto;
+  opacity: 0.20;
+  filter: saturate(1.25) contrast(1.05) brightness(0.92);
+  /*
+   * El radio de la máscara tiene que quedar por dentro de la imagen o se ve
+   * el borde recto del cuadrado. Se mide en píxeles, no en %, porque el % se
+   * calcula contra la esquina más lejana del viewport y no contra la imagen.
+   */
+  -webkit-mask-image: radial-gradient(circle min(38vh, 30vw) at 50% 46%, #000 45%, transparent 100%);
+  mask-image: radial-gradient(circle min(38vh, 30vw) at 50% 46%, #000 45%, transparent 100%);
+  pointer-events: none;
+}
+
+/*
+ * Todos los campos, por defecto, oscuros.
+ *
+ * Va como selector de elemento y no como clase para que ningún input quede
+ * con fondo blanco y letra clara — el caso en que el texto se vuelve
+ * invisible. Cualquier input nuevo hereda esto sin que haya que acordarse.
+ */
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--borde);
+  border-radius: 0.75rem;
+  color: #e8edf5;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #64748b;
+}
+
+input:not([type='checkbox']):not([type='radio']):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--cb-500);
+  box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.22);
+  background-color: rgba(255, 255, 255, 0.09);
+}
+
+input:disabled, select:disabled, textarea:disabled {
+  color: #64748b;
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Los <option> nativos no heredan el fondo del select */
+option { background: #16233a; color: #e2e8f0; }
+
+input[type='checkbox'], input[type='radio'] {
+  accent-color: var(--cb-500);
+}
+
+/* Los números se leen mejor alineados en columna */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Código de producto. El depósito lo lee para ubicar el artículo en la estantería,
+   así que va monoespaciado y con los dígitos alineados, no como texto corrido. */
+.codigo {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+/* Sobre papel (proforma, nota de depósito) el mismo código necesita más peso visual
+   porque compite con la descripción a igual tamaño. */
+.documento .codigo {
+  color: #0f172a;
+}
+
+/* Encabezado de sección con tinte de color, en versión oscura */
+.seccion-titulo {
+  @apply px-6 py-4;
+  border-bottom: 1px solid var(--borde-suave);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/*
+ * Fuera las flechitas de los campos numéricos: las cantidades y los
+ * porcentajes se escriben con el teclado, no se suben de a uno.
+ */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); background-clip: content-box; }
+
+/* ---------------------------------------------------------------- piezas */
+
+/*
+ * Relieve.
+ *
+ * Los paneles se ven en volumen sin perder transparencia: una luz muy tenue
+ * en el borde de arriba (como si la luz viniera de arriba), una sombra
+ * interna abajo, y una sombra proyectada en dos capas — una corta y densa
+ * que pega el panel al fondo, y otra larga y difusa que lo despega.
+ */
+.vidrio {
+  background: linear-gradient(160deg, rgba(255,255,255,.085), rgba(255,255,255,.03) 45%);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--borde);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 2px 6px -2px rgba(0, 0, 0, 0.5),
+    0 24px 48px -20px rgba(0, 0, 0, 0.75);
+}
+
+.tarjeta {
+  @apply rounded-2xl;
+  background:
+    linear-gradient(165deg, rgba(255,255,255,.07), rgba(255,255,255,0) 40%),
+    var(--vidrio-fuerte);
+  backdrop-filter: blur(22px) saturate(1.35);
+  -webkit-backdrop-filter: blur(22px) saturate(1.35);
+  border: 1px solid var(--borde);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 2px 6px -2px rgba(0, 0, 0, 0.5),
+    0 28px 56px -24px rgba(0, 0, 0, 0.8);
+}
+
+.tarjeta-titulo {
+  @apply px-5 py-3.5 flex items-center justify-between gap-3;
+  border-bottom: 1px solid var(--borde-suave);
+}
+
+.etiqueta {
+  @apply text-[11px] font-semibold uppercase tracking-wider text-slate-400;
+}
+
+.campo {
+  @apply w-full rounded-xl px-3 py-2 text-sm text-slate-100 transition;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--borde);
+}
+.campo::placeholder { @apply text-slate-500; }
+.campo:focus {
+  outline: none;
+  border-color: var(--cb-500);
+  box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.22);
+  background: rgba(255, 255, 255, 0.09);
+}
+.campo:disabled { @apply text-slate-500; background: rgba(255, 255, 255, 0.03); }
+
+/* Los <option> nativos no heredan el fondo del select */
+.campo option { background: #16233a; color: #e2e8f0; }
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl
+         px-4 py-2 text-sm transition disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+/* Botones con bisel: luz arriba, sombra abajo, y se hunden al apretarlos. */
+.btn-primario {
+  @apply btn text-white;
+  background: linear-gradient(180deg, #4d97ff, var(--cb-600));
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 8px 20px -8px rgba(61, 139, 253, 0.85),
+    0 2px 4px -1px rgba(0, 0, 0, 0.45);
+}
+.btn-primario:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-primario:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.4),
+    0 2px 6px -3px rgba(61, 139, 253, 0.6);
+}
+
+.btn-suave {
+  @apply btn text-slate-200;
+  background: linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.05));
+  border: 1px solid var(--borde);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 4px 12px -6px rgba(0, 0, 0, 0.7);
+}
+.btn-suave:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+.btn-suave:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.chip {
+  @apply inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+/* Los campos se ven hundidos, al revés que los botones. */
+input:not([type='checkbox']):not([type='radio']):not([type='file']),
+select,
+textarea {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.nav-item {
+  @apply flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition;
+}
+
+/* Fila de tabla sobre vidrio */
+.fila:hover { background: rgba(255, 255, 255, 0.04); }
+
+/*
+ * Los documentos que se imprimen (proforma, nota de depósito) mantienen fondo
+ * blanco: son papel, no interfaz.
+ */
+.documento, .documento * { color-scheme: light; }
+.documento { background: #fff; color: #0f172a; }

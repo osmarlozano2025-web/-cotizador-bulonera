@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "app\\iniciar-dev.cmd"
+      ],
+      "port": 5173
+    }
+  ]
+}

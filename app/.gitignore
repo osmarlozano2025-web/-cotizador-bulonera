@@ -1,0 +1,24 @@
+node_modules/
+dist/
+
+# Credenciales. El repositorio es público: nada de esto se versiona.
+.env
+.env.*
+!.env.example
+api-php/.env
+api-php/.env.hostinger
+server/config.json
+
+# Scripts de despliegue con la contraseña escrita adentro. El deploy bueno es
+# server/deploy-hostinger.mjs, que la lee de la variable FTP_PASSWORD.
+deploy.sh
+deploy_*.sh
+DEPLOY.bat
+
+# Scripts de diagnóstico de una sola vez
+server/check-*.mjs
+!server/check-php-funcs.mjs
+server/setup-v*.mjs
+server/aplicar-*.mjs
+server/estado.mjs
+server/fix-*.mjs

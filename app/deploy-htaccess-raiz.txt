@@ -1,0 +1,15 @@
+RewriteEngine On
+
+# Apache/PHP a veces no pasa el header Authorization — lo forzamos explícitamente
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Las rutas /api/* van al router de PHP
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^api/(.*)$ api-php/index.php [QSA,L]
+
+# Todo lo demás que no sea un archivo real (JS, CSS, imágenes) cae al index.html
+# para que React Router maneje la navegación del lado del cliente
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]

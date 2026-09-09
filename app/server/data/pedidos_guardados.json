@@ -1,0 +1,128 @@
+[
+  {
+    "id": "1781664220514",
+    "clienteId": "1002",
+    "clienteNombre": "Ferretería Rivadavia",
+    "tipoDescuento": "A",
+    "descuento": 5,
+    "fecha": "2026-06-17T02:43:40.514Z",
+    "items": [
+      {
+        "codigo": "53305012",
+        "descripcion": "TORN.HO.C/TANQUE",
+        "familia": "buloneria",
+        "medida": "3/16 x 1/2",
+        "cantidad": 4,
+        "precioGranel": 17.75
+      },
+      {
+        "codigo": "53306025",
+        "descripcion": "TORN.HO.C/TANQUE",
+        "familia": "buloneria",
+        "medida": "1/4 x 1",
+        "cantidad": 100,
+        "precioGranel": 44
+      },
+      {
+        "codigo": "53306076",
+        "descripcion": "TORN.HO.C/TANQUE",
+        "familia": "buloneria",
+        "medida": "1/4 x 3",
+        "cantidad": 141,
+        "precioGranel": 104.79
+      },
+      {
+        "codigo": "73325",
+        "descripcion": "AMOLAD ANGULAR AIRE",
+        "familia": "tolsen",
+        "medida": "1/4\"",
+        "cantidad": 1,
+        "precioGranel": 63696.06
+      },
+      {
+        "codigo": "65427",
+        "descripcion": "GATO HIDRÁULICO DE BOTELLA",
+        "familia": "tolsen",
+        "medida": "4T",
+        "cantidad": 1,
+        "precioGranel": 97384.64
+      },
+      {
+        "codigo": "76420",
+        "descripcion": "SIERRAS CIRCULARES",
+        "familia": "tolsen",
+        "medida": "115(41/2)x40Tx22.2mm",
+        "cantidad": 1,
+        "precioGranel": 13185.7
+      },
+      {
+        "codigo": "35196",
+        "descripcion": "TERMÓMETRO INFRARROJO",
+        "familia": "tolsen",
+        "medida": "Aprobación CE",
+        "cantidad": 1,
+        "precioGranel": 129440.54
+      },
+      {
+        "codigo": "90101025",
+        "descripcion": "HSS-M2 MECHA ACERO RÁPIDO VÁSTAGO CILINDRICO",
+        "familia": "mechas",
+        "medida": "10.25MM",
+        "cantidad": 1,
+        "precioGranel": 4186.66
+      },
+      {
+        "codigo": "90300008",
+        "descripcion": "MECHA WIDIA VASTAGO CILINDRICO",
+        "familia": "mechas",
+        "medida": "8X120MM",
+        "cantidad": 1,
+        "precioGranel": 1843.32
+      },
+      {
+        "codigo": "90516150",
+        "descripcion": "MECHA SDS PLUS PARA HORMIGON",
+        "familia": "mechas",
+        "medida": "16X150MM",
+        "cantidad": 1,
+        "precioGranel": 4139.34
+      }
+    ],
+    "total": 316466.52
+  },
+  {
+    "id": "1781664681628",
+    "clienteId": "1003",
+    "clienteNombre": "El Perno de Oro",
+    "tipoDescuento": "A",
+    "descuento": 5,
+    "fecha": "2026-06-17T02:51:21.628Z",
+    "items": [
+      {
+        "codigo": "53305019",
+        "descripcion": "TORN.HO.C/TANQUE",
+        "familia": "buloneria",
+        "medida": "3/16 x 3/4",
+        "cantidad": 1,
+        "precioGranel": 21.1
+      },
+      {
+        "codigo": "75862",
+        "descripcion": "JUEGO DE SIERRAS COPA",
+        "familia": "tolsen",
+        "medida": "4 Sierras",
+        "cantidad": 1,
+        "precioGranel": 114332
+      },
+      {
+        "codigo": "90508210",
+        "descripcion": "MECHA SDS PLUS PARA HORMIGON",
+        "familia": "mechas",
+        "medida": "8X210MM",
+        "cantidad": 1,
+        "precioGranel": 1956.81
+      }
+    ],
+    "total": 110494.41
+  }
+]

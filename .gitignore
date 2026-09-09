@@ -1,0 +1,27 @@
+# Copia del repositorio anterior de GitHub, guardada como respaldo.
+# Es historia vieja: se conserva en disco, no se sube.
+_respaldo-github-viejo/
+
+node_modules/
+dist/
+
+# Credenciales: la contraseña de la base, el JWT y la clave de OpenAI.
+# El repositorio es público, así que nada de esto se versiona.
+.env
+.env.*
+!.env.example
+
+# Claves del servidor y de FTP escritas en texto plano.
+credenciales.txt
+server-config.json
+
+# Volcados de la base: tienen datos reales de los clientes (nombre, CUIT,
+# teléfono). No van a un repositorio público.
+respaldos/
+docs/respaldos-db/
+documentos-fuera-del-repo/
+
+# Ruido del sistema y del editor
+Thumbs.db
+desktop.ini
+.DS_Store
