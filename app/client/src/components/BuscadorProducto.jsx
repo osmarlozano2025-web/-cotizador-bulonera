@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { buscarProductos, obtenerFamilias } from '../utils/productosApi'
+import { etiquetaFamilia } from '../utils/aprobaciones'
 
-export default function BuscadorProducto({ onAgregar }) {
+export default function BuscadorProducto({ onAgregar, config }) {
   const [query, setQuery]       = useState('')
   const [familia, setFamilia]   = useState('')
   const [familias, setFamilias] = useState([])
@@ -15,7 +16,10 @@ export default function BuscadorProducto({ onAgregar }) {
 
   useEffect(() => {
     clearTimeout(timer.current)
-    if (query.length < 2) { setResultados([]); return }
+    // Sin texto y sin familia elegida: no hay nada que listar todavía. Con
+    // familia elegida, se muestra lo que tiene esa familia aunque no se haya
+    // escrito nada — así se elige de una lista en vez de tener que escribir.
+    if (query.length < 2 && !familia) { setResultados([]); return }
     timer.current = setTimeout(() => {
       setBuscando(true)
       buscarProductos(query, familia)
@@ -25,7 +29,14 @@ export default function BuscadorProducto({ onAgregar }) {
     }, 250)
   }, [query, familia])
 
-  const agregar = (p) => { onAgregar(p); setQuery(''); setResultados([]) }
+  // Si se estaba mostrando el listado de una familia (sin texto escrito), la
+  // lista se deja como está: así se agregan varios seguidos sin tener que
+  // volver a elegir la familia cada vez. Sólo se limpia cuando fue una
+  // búsqueda por texto, que es de un producto puntual.
+  const agregar = (p) => {
+    onAgregar(p)
+    if (query) { setQuery(''); setResultados([]) }
+  }
 
   return (
     <div className="space-y-2">
@@ -45,7 +56,7 @@ export default function BuscadorProducto({ onAgregar }) {
           >
             <option value="">Todas</option>
             {familias.map(f => (
-              <option key={f} value={f}>{f.charAt(0).toUpperCase() + f.slice(1)}</option>
+              <option key={f} value={f}>{etiquetaFamilia(config, f)}</option>
             ))}
           </select>
         )}
@@ -96,6 +107,9 @@ export default function BuscadorProducto({ onAgregar }) {
 
       {!buscando && query.length >= 2 && resultados.length === 0 && (
         <p className="text-xs text-slate-400 px-1">Sin resultados para "{query}"</p>
+      )}
+      {!buscando && query.length < 2 && familia && resultados.length === 0 && (
+        <p className="text-xs text-slate-400 px-1">Esta familia todavía no tiene productos cargados</p>
       )}
     </div>
   )

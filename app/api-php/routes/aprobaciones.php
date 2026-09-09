@@ -134,6 +134,7 @@ function armarPedido(PDO $pdo, array $aprobacion, array $subRows, array $itemsPo
             'unidadGranel' => $it['unidadGranel'] === null ? null : (float) $it['unidadGranel'],
             'unidadFraccion' => $it['unidadFraccion'] === null ? null : (float) $it['unidadFraccion'],
             'descuentoItem' => (float) ($it['descuentoItem'] ?? 0),
+            'ivaPorcentaje' => (float) ($it['ivaPorcentaje'] ?? 21),
             'cantidadConfirmada' => $it['cantidadConfirmada'] === null ? null : (float) $it['cantidadConfirmada'],
             'estado' => $it['estado'] ?? 'pendiente',
             'reemplazaA' => $it['reemplazaA'] === null ? null : (int) $it['reemplazaA'],
@@ -300,7 +301,7 @@ function catalogoDelPedido(PDO $pdo, array $items): array
     $huecos = implode(',', array_fill(0, count($codigos), '?'));
     $stmt = $pdo->prepare(
         "SELECT codigo, descripcion, medida, marca, familia, subfamilia,
-                precioLista, precioGranel, unidadGranel, unidadFraccion
+                precioLista, precioGranel, unidadGranel, unidadFraccion, ivaPorcentaje
          FROM productos WHERE codigo IN ($huecos)"
     );
     $stmt->execute($codigos);
@@ -390,6 +391,8 @@ function rutaAprobacionesCrear(): void
                     // quedó en granel, en fracción o suelto.
                     'unidadGranel' => $delCatalogo['unidadGranel'] ?? $it['unidadGranel'] ?? null,
                     'unidadFraccion' => $delCatalogo['unidadFraccion'] ?? $it['unidadFraccion'] ?? null,
+                    // El 21% de fábrica si el producto no trae uno propio.
+                    'ivaPorcentaje' => (float) ($delCatalogo['ivaPorcentaje'] ?? $it['ivaPorcentaje'] ?? 21),
                     'cantidad' => (float) ($it['cantidad'] ?? 1),
                 ];
                 if ($renglon['descripcion'] === null || $renglon['descripcion'] === '') {
@@ -409,14 +412,14 @@ function rutaAprobacionesCrear(): void
                 $stmt = $pdo->prepare(
                     'INSERT INTO aprobaciones_items
                      (subpedidoId, codigo, descripcion, medida, marca, familia, subfamilia, precioGranel, cantidad,
-                      modoVenta, bultos, unidadGranel, unidadFraccion, descuentoItem,
+                      modoVenta, bultos, unidadGranel, unidadFraccion, descuentoItem, ivaPorcentaje,
                       precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
                 );
                 $stmt->execute([
                     $subpedidoId, $renglon['codigo'], $renglon['descripcion'], $renglon['medida'], $renglon['marca'],
                     $renglon['familia'], $renglon['subfamilia'], $renglon['precioGranel'], $renglon['cantidad'],
-                    $d['modoVenta'], $d['bultos'], $renglon['unidadGranel'], $renglon['unidadFraccion'], $d['descuentoItem'],
+                    $d['modoVenta'], $d['bultos'], $renglon['unidadGranel'], $renglon['unidadFraccion'], $d['descuentoItem'], $d['ivaPorcentaje'],
                     $d['precioLista'], $d['descAjusteFamilia'],
                     $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'],
                 ]);
@@ -585,6 +588,7 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
             $reemplazo['precioGranel'] = (float) (
                 $delCatalogo['precioGranel'] ?? $reemplazo['precioGranel'] ?? $reemplazo['precio'] ?? 0
             );
+            $reemplazo['ivaPorcentaje'] = (float) ($delCatalogo['ivaPorcentaje'] ?? $reemplazo['ivaPorcentaje'] ?? 21);
 
             // El reemplazo hereda el ajuste de su familia en este pedido.
             $d = calcularDesglose(
@@ -599,8 +603,8 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
                 "INSERT INTO aprobaciones_items
                  (subpedidoId, codigo, descripcion, medida, marca, familia, subfamilia,
                   precioGranel, cantidad, cantidadConfirmada, estado, reemplazaA, nota,
-                  precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reemplazo', ?, ?, ?, ?, ?, ?, ?, ?)"
+                  precioLista, descAjusteFamilia, descPago1, descPago2, descCliente, precioNeto, ivaPorcentaje)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reemplazo', ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             )->execute([
                 $item['subpedidoId'],
                 $reemplazo['codigo'] ?? null,
@@ -615,7 +619,7 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
                 $itemId,
                 'Reemplaza a ' . ($item['codigo'] ?: $item['descripcion']),
                 $d['precioLista'], $d['descAjusteFamilia'],
-                $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'],
+                $d['descPago1'], $d['descPago2'], $d['descCliente'], $d['precioNeto'], $d['ivaPorcentaje'],
             ]);
         }
         $pdo->commit();

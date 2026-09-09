@@ -37,9 +37,18 @@ function rutaProductosBuscar(): void
     requireAuth();
     $q = trim($_GET['q'] ?? '');
     $familia = $_GET['familia'] ?? '';
-    if (mb_strlen($q) < 2) jsonSalida([]);
-
     $pdo = obtenerPDO();
+
+    // Sin texto para buscar: si se eligió una familia, se lista lo que tiene
+    // esa familia en vez de no mostrar nada — así se puede elegir de una
+    // lista sin tener que escribir el código o la descripción de memoria.
+    if (mb_strlen($q) < 2) {
+        if ($familia === '') jsonSalida([]);
+        $stmt = $pdo->prepare('SELECT * FROM productos WHERE familia = ? ORDER BY descripcion LIMIT 30');
+        $stmt->execute([$familia]);
+        jsonSalida(array_map('castProducto', $stmt->fetchAll()));
+    }
+
     $filtroFamilia = $familia !== '' ? ' AND familia = ?' : '';
 
     // El índice de texto completo evita recorrer los miles de productos en cada

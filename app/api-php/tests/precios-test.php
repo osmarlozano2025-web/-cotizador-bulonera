@@ -154,6 +154,16 @@ verificar('una familia nueva aplica su tope', 160.0, $d['precioNeto']);
 verificar('y no deja pasar más que el tope', 160.0,
     calcularDesglose(['familia' => 'escaleras', 'precioGranel' => 200], $cfgConEscaleras, 'contado', 0, -50)['precioNeto']);
 
+echo "\n--- IVA por producto\n";
+
+// Sin la clave, cae al 21% de fábrica -- "el resto es veintiuno".
+$sinIva = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 100], $cfg, 'contado');
+verificar('sin ivaPorcentaje cargado, usa 21% por defecto', 21.0, $sinIva['ivaPorcentaje']);
+
+$conIva = calcularDesglose(['familia' => 'tolsen', 'precioGranel' => 100, 'ivaPorcentaje' => 10.5], $cfg, 'contado');
+verificar('un producto con 10.5% conserva su alícuota', 10.5, $conIva['ivaPorcentaje']);
+verificar('el IVA no entra en la cadena de descuentos: el neto no cambia', $sinIva['precioNeto'], $conIva['precioNeto']);
+
 echo "\n";
 echo $fallados === 0
     ? "TODO OK — $total verificaciones\n\n"

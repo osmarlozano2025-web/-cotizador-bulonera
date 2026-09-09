@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SelectorCliente from '../components/SelectorCliente'
 import SubidorFoto from '../components/SubidorFoto'
@@ -6,24 +6,72 @@ import BuscadorProducto from '../components/BuscadorProducto'
 import TablaProductos from '../components/TablaProductos'
 import { crearAprobacion, condicionesDePago, obtenerConfiguraciones } from '../utils/aprobaciones'
 
+const BORRADOR_KEY = 'cb_pedido_borrador'
+
+/**
+ * El pedido en progreso vivía sólo en memoria: si la pestaña se recargaba por
+ * lo que sea (el servidor de desarrollo se reinicia, se cierra sin querer, se
+ * corta la conexión), un pedido de cuarenta renglones se perdía entero y
+ * había que rehacerlo de cero. Se guarda acá a medida que se carga, y se lee
+ * de vuelta al entrar a la pantalla.
+ */
+function leerBorrador() {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(BORRADOR_KEY) || 'null')
+    return guardado && typeof guardado === 'object' ? guardado : null
+  } catch {
+    return null
+  }
+}
+
 export default function NuevoPedido() {
   const navigate = useNavigate()
-  const [cliente, setCliente] = useState(null)
-  const [items, setItems] = useState([])
-  const [modo, setModo] = useState(null) // 'foto' | 'manual'
+  const borrador = useRef(leerBorrador()).current
+  const [cliente, setCliente] = useState(() => borrador?.cliente ?? null)
+  const [items, setItems] = useState(() => borrador?.items ?? [])
+  const [modo, setModo] = useState(() => borrador?.modo ?? null) // 'foto' | 'manual'
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState('')
-  const [condicionPago, setCondicionPago] = useState('contado')
+  const [condicionPago, setCondicionPago] = useState(() => borrador?.condicionPago ?? 'contado')
   // Un pedido directo no le pide confirmación al cliente: ya la dio.
-  const [pedidoDirecto, setPedidoDirecto] = useState(false)
+  const [pedidoDirecto, setPedidoDirecto] = useState(() => borrador?.pedidoDirecto ?? false)
   const [config, setConfig] = useState(null)
   // Descuento por familia de este pedido. Arranca en 0 y se puede mejorar
   // hasta el tope que tenga cada familia en Configuraciones.
-  const [descuentosFamilia, setDescuentosFamilia] = useState({})
+  const [descuentosFamilia, setDescuentosFamilia] = useState(() => borrador?.descuentosFamilia ?? {})
+  const [avisoBorrador, setAvisoBorrador] = useState(() => (borrador?.items?.length > 0))
 
   useEffect(() => {
     obtenerConfiguraciones().then(setConfig).catch(() => {})
   }, [])
+
+  // Se guarda en cada cambio. Con el pedido vacío no hay nada que recuperar,
+  // así que se limpia en vez de dejar un borrador fantasma.
+  useEffect(() => {
+    if (!cliente && items.length === 0) {
+      localStorage.removeItem(BORRADOR_KEY)
+      return
+    }
+    try {
+      localStorage.setItem(BORRADOR_KEY, JSON.stringify({
+        cliente, items, modo, condicionPago, pedidoDirecto, descuentosFamilia,
+      }))
+    } catch {
+      // localStorage lleno o bloqueado: no hay forma de persistir, se sigue
+      // igual con el pedido en memoria nada más.
+    }
+  }, [cliente, items, modo, condicionPago, pedidoDirecto, descuentosFamilia])
+
+  const descartarBorrador = () => {
+    localStorage.removeItem(BORRADOR_KEY)
+    setCliente(null)
+    setItems([])
+    setModo(null)
+    setCondicionPago('contado')
+    setPedidoDirecto(false)
+    setDescuentosFamilia({})
+    setAvisoBorrador(false)
+  }
 
   const cambiarDescuentoFamilia = (familia, valor) =>
     setDescuentosFamilia(prev => ({ ...prev, [familia]: valor }))
@@ -46,6 +94,7 @@ export default function NuevoPedido() {
         },
         cliente
       )
+      localStorage.removeItem(BORRADOR_KEY)
       navigate('/aprobaciones', { state: { creado: aprobacion.id } })
     } catch (e) {
       setErrorEnvio(e.message)
@@ -56,6 +105,22 @@ export default function NuevoPedido() {
 
   return (
     <div className="space-y-5">
+      {avisoBorrador && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-sky-500/10 border border-sky-500/30 px-4 py-2.5 text-sm">
+          <span className="text-sky-300">
+            Recuperamos un pedido que habías empezado a cargar, con {items.length} producto{items.length === 1 ? '' : 's'}.
+          </span>
+          <div className="flex items-center gap-3 shrink-0">
+            <button onClick={() => setAvisoBorrador(false)} className="text-sky-300 hover:text-sky-200 font-medium transition">
+              Seguir con este
+            </button>
+            <button onClick={descartarBorrador} className="text-slate-400 hover:text-rose-400 transition">
+              Empezar de cero
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold text-slate-100">Nuevo pedido</h2>
@@ -190,7 +255,7 @@ export default function NuevoPedido() {
           <div className="p-5">
             {modo === 'foto'
               ? <SubidorFoto onAgregar={agregarProducto} />
-              : <BuscadorProducto onAgregar={agregarProducto} />}
+              : <BuscadorProducto onAgregar={agregarProducto} config={config} />}
           </div>
         </div>
       )}

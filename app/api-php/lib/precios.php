@@ -244,6 +244,11 @@ function calcularDesglose(
     // invierte para entrar en la cadena con la convención de signo del resto.
     $neto = encadenarAjustes($precio, [$ajuste, $propio, -abs($descCliente), $pago]);
 
+    // El IVA es del producto, no del pedido: se lee y se congela en el
+    // renglón como el resto del desglose. No entra en la cadena de
+    // descuentos — se suma aparte, sobre el precio ya neto, en la proforma.
+    $iva = (float) ($item['ivaPorcentaje'] ?? 21.0);
+
     return [
         'precioLista' => round($precio, 2),
         'precioBase' => round($precio, 2),
@@ -256,6 +261,7 @@ function calcularDesglose(
         'descPago2' => 0.0,
         'descCliente' => round($descCliente, 2),
         'precioNeto' => round($neto, 2),
+        'ivaPorcentaje' => round($iva, 2),
     ];
 }
 
