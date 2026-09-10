@@ -44,6 +44,21 @@ export function AuthProvider({ children }) {
     return data.user
   }
 
+  const loginCliente = async (identificador, password) => {
+    const res = await fetch('/api/auth/login-cliente', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identificador, password }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Error al iniciar sesión')
+    setToken(data.token)
+    setUser(data.user)
+    localStorage.setItem('cb_token', data.token)
+    localStorage.setItem('cb_user', JSON.stringify(data.user))
+    return data.user
+  }
+
   const logout = () => {
     setToken(null)
     setUser(null)
@@ -54,7 +69,7 @@ export function AuthProvider({ children }) {
   const tieneSeccion = (seccion) => user?.permisos?.secciones?.includes(seccion) ?? false
 
   return (
-    <AuthContext.Provider value={{ token, user, listo, login, logout, tieneSeccion }}>
+    <AuthContext.Provider value={{ token, user, listo, login, loginCliente, logout, tieneSeccion }}>
       {children}
     </AuthContext.Provider>
   )

@@ -82,6 +82,9 @@ export default function TablaProductos({
   condicionPago = 'contado',
   descuentosFamilia = {},
   onDescuentoFamilia,
+  // Un cliente arma su propio pedido, pero el descuento no lo pone él: eso
+  // lo decide el vendedor cuando lo revisa.
+  bloquearDescuentos = false,
 }) {
   const topeDe = (familia) => config?.descuentos_familia?.[familia] ?? 0
   const ajusteDe = (familia) => ajusteDentroDelTope(descuentosFamilia[familia] ?? 0, topeDe(familia))
@@ -150,7 +153,7 @@ export default function TablaProductos({
                       </span>
 
                       <div className="flex items-center gap-4">
-                        {onDescuentoFamilia && (
+                        {onDescuentoFamilia && !bloquearDescuentos && (
                           <DescuentoFamilia
                             valor={ajuste}
                             tope={topeDe(familia)}
@@ -200,23 +203,27 @@ export default function TablaProductos({
                       </td>
 
                       <td className="py-2">
-                        <div className="relative w-24 ml-auto">
-                          <CampoNumero
-                            value={item.descuentoItem ?? 0}
-                            onChange={(n) => actualizar(idx, 'descuentoItem', n)}
-                            placeholder="-25"
-                            title="Descuento de este renglón. Se escribe: -25, +10…"
-                            className={`tabular w-full border rounded-lg pl-2.5 pr-6 py-1.5 text-right text-sm font-medium
-                              focus:outline-none focus:ring-2 transition ${
-                              (item.descuentoItem || 0) < 0
-                                ? 'border-emerald-400/50 text-emerald-300 bg-emerald-500/10 focus:ring-emerald-400'
-                                : (item.descuentoItem || 0) > 0
-                                  ? 'border-amber-400/50 text-amber-300 bg-amber-500/10 focus:ring-amber-400'
-                                  : 'border-white/10 focus:ring-[var(--cb-500)]'
-                            }`}
-                          />
-                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
-                        </div>
+                        {bloquearDescuentos ? (
+                          <span className="block w-24 ml-auto text-right text-sm text-slate-500">—</span>
+                        ) : (
+                          <div className="relative w-24 ml-auto">
+                            <CampoNumero
+                              value={item.descuentoItem ?? 0}
+                              onChange={(n) => actualizar(idx, 'descuentoItem', n)}
+                              placeholder="-25"
+                              title="Descuento de este renglón. Se escribe: -25, +10…"
+                              className={`tabular w-full border rounded-lg pl-2.5 pr-6 py-1.5 text-right text-sm font-medium
+                                focus:outline-none focus:ring-2 transition ${
+                                (item.descuentoItem || 0) < 0
+                                  ? 'border-emerald-400/50 text-emerald-300 bg-emerald-500/10 focus:ring-emerald-400'
+                                  : (item.descuentoItem || 0) > 0
+                                    ? 'border-amber-400/50 text-amber-300 bg-amber-500/10 focus:ring-amber-400'
+                                    : 'border-white/10 focus:ring-[var(--cb-500)]'
+                              }`}
+                            />
+                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+                          </div>
+                        )}
                       </td>
 
                       <td className="tabular py-2 text-right text-slate-400">{money(base)}</td>

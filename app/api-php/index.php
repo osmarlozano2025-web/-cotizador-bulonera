@@ -38,6 +38,11 @@ if ($ruta === '') $ruta = '/';
 $rutas = [
     ['POST', '#^/auth/login$#', fn() => rutaAuthLogin()],
     ['GET',  '#^/auth/me$#', fn() => rutaAuthMe()],
+    ['POST', '#^/auth/registrar-personal$#', fn() => rutaAuthRegistrarPersonal()],
+    ['POST', '#^/auth/verificar-personal/([^/]+)$#', fn($t) => rutaAuthVerificarPersonal($t)],
+    ['POST', '#^/auth/registrar-cliente$#', fn() => rutaAuthRegistrarCliente()],
+    ['POST', '#^/auth/verificar-cliente/([^/]+)$#', fn($t) => rutaAuthVerificarCliente($t)],
+    ['POST', '#^/auth/login-cliente$#', fn() => rutaAuthLoginCliente()],
 
     ['GET',    '#^/personal$#', fn() => rutaPersonalListar()],
     ['POST',   '#^/personal$#', fn() => rutaPersonalCrear()],

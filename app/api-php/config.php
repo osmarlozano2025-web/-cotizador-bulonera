@@ -12,4 +12,9 @@ return [
     ],
     'jwt_secret' => getenv('JWT_SECRET') ?: '',
     'openai_api_key' => getenv('OPENAI_API_KEY') ?: '',
+    'mail' => [
+        'resend_api_key' => getenv('RESEND_API_KEY') ?: '',
+        'from' => getenv('MAIL_FROM') ?: 'Córdoba Bulones <onboarding@resend.dev>',
+    ],
+    'frontend_url' => getenv('FRONTEND_URL') ?: 'http://localhost:5173',
 ];

@@ -16,6 +16,8 @@ import ConfirmarPedido from './pages/ConfirmarPedido'
 import Proforma from './pages/Proforma'
 import NotaDeposito from './pages/NotaDeposito'
 import Login from './pages/Login'
+import Registro from './pages/Registro'
+import VerificarEmail from './pages/VerificarEmail'
 
 function Layout({ children }) {
   return (
@@ -41,6 +43,8 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/registro" element={<Registro />} />
+        <Route path="/verificar-email/:tipo/:token" element={<VerificarEmail />} />
         <Route path="/confirmar/:token" element={<ConfirmarPedido />} />
         <Route path="/proforma/:token" element={<Proforma />} />
         <Route path="/" element={<Pagina seccion="nuevo-pedido"><NuevoPedido /></Pagina>} />

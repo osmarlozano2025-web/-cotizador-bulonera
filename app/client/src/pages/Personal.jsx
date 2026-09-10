@@ -15,6 +15,8 @@ const PRESETS = {
   Administrador: { secciones: SECCIONES.map(s => s.key), puedeAprobarFamilias: true, puedeEnviarCliente: true },
   Vendedor: { secciones: ['nuevo-pedido', 'aprobaciones', 'cotizaciones', 'clientes', 'productos'], puedeAprobarFamilias: false, puedeEnviarCliente: true },
   Deposito: { secciones: ['aprobaciones'], puedeAprobarFamilias: true, puedeEnviarCliente: false },
+  // Con lo que arranca cualquiera que se registró solo: no ve nada hasta que se le asigna un rol de verdad.
+  Pendiente: { secciones: [], puedeAprobarFamilias: false, puedeEnviarCliente: false },
 }
 
 const VACIO = {
@@ -46,7 +48,7 @@ export default function Personal() {
 
   const nuevo = () => { setForm(VACIO); setEditandoId(null); setMostrarForm(true); setError('') }
   const editar = (p) => {
-    setForm({ nombre: p.nombre, usuario: p.usuario, password: '', rol: p.rol, permisos: p.permisos })
+    setForm({ nombre: p.nombre, usuario: p.usuario || '', password: '', rol: p.rol, permisos: p.permisos })
     setEditandoId(p.id); setMostrarForm(true); setError('')
   }
 
@@ -71,6 +73,9 @@ export default function Personal() {
       if (editandoId) {
         const datos = { ...form }
         if (!datos.password) delete datos.password
+        // Las cuentas que se registraron solas no tienen usuario (usan email):
+        // no se manda vacío, así no pisa el valor NULL con '' en la base.
+        if (!datos.usuario) delete datos.usuario
         await req(`/api/personal/${editandoId}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos),
         })
@@ -116,8 +121,10 @@ export default function Personal() {
                 className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]" />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-400">Usuario</label>
-              <input value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))} required
+              <label className="text-xs font-medium text-slate-400">
+                Usuario {editandoId && <span className="text-slate-500">(vacío si entra con su email)</span>}
+              </label>
+              <input value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))} required={!editandoId}
                 className="w-full mt-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]" />
             </div>
             <div>
@@ -135,6 +142,7 @@ export default function Personal() {
                 <option value="Administrador">Administrador</option>
                 <option value="Vendedor">Vendedor</option>
                 <option value="Deposito">Depósito</option>
+                <option value="Pendiente">Pendiente (sin asignar)</option>
               </select>
             </div>
           </div>
@@ -183,7 +191,7 @@ export default function Personal() {
             <thead className="bg-white/5 border-b">
               <tr>
                 <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Nombre</th>
-                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Usuario</th>
+                <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Usuario / Email</th>
                 <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Rol</th>
                 <th className="text-left px-4 py-2 text-slate-400 text-xs font-semibold">Secciones</th>
                 <th className="px-4 py-2"></th>
@@ -193,9 +201,13 @@ export default function Personal() {
               {lista.map(p => (
                 <tr key={p.id} className="hover:bg-white/5">
                   <td className="px-4 py-2.5 font-medium">{p.nombre}</td>
-                  <td className="px-4 py-2.5 text-slate-400">{p.usuario}</td>
+                  <td className="px-4 py-2.5 text-slate-400">{p.usuario || p.email || '—'}</td>
                   <td className="px-4 py-2.5">
-                    <span className="text-xs font-semibold bg-sky-500/10 text-sky-400 border border-blue-200 rounded px-2 py-0.5">{p.rol}</span>
+                    <span className={`text-xs font-semibold rounded px-2 py-0.5 border ${
+                      p.rol === 'Pendiente'
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        : 'bg-sky-500/10 text-sky-400 border-blue-200'
+                    }`}>{p.rol}</span>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-slate-400">{p.permisos.secciones.length} secciones</td>
                   <td className="px-4 py-2.5 text-right">

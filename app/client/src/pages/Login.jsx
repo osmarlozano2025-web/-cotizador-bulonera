@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { primeraRutaPermitida } from '../utils/secciones'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, loginCliente } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [tipo, setTipo] = useState('personal') // 'personal' | 'cliente'
   const [usuario, setUsuario] = useState('')
+  const [identificador, setIdentificador] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(false)
@@ -17,7 +19,10 @@ export default function Login() {
     setCargando(true)
     setError('')
     try {
-      const usuarioLogueado = await login(usuario, password)
+      const usuarioLogueado = tipo === 'cliente'
+        ? await loginCliente(identificador, password)
+        : await login(usuario, password)
+
       const destinoSolicitado = location.state?.from
       const puedeVerDestino = destinoSolicitado && usuarioLogueado.permisos?.secciones?.some(
         s => destinoSolicitado === '/' ? s === 'nuevo-pedido' : destinoSolicitado.startsWith(`/${s}`)
@@ -47,17 +52,47 @@ export default function Login() {
           </div>
         </div>
 
+        <div className="flex mb-4 rounded-lg overflow-hidden border border-white/10 text-sm">
+          <button
+            type="button"
+            onClick={() => { setTipo('personal'); setError('') }}
+            className={`flex-1 py-2 font-medium transition ${tipo === 'personal' ? 'bg-[var(--cb-600)] text-white' : 'text-slate-400 hover:bg-white/5'}`}
+          >
+            Personal
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTipo('cliente'); setError('') }}
+            className={`flex-1 py-2 font-medium transition ${tipo === 'cliente' ? 'bg-[var(--cb-600)] text-white' : 'text-slate-400 hover:bg-white/5'}`}
+          >
+            Cliente
+          </button>
+        </div>
+
         <form onSubmit={submit} className="tarjeta p-7 space-y-4">
-          <div>
-            <label className="etiqueta block mb-1.5">Usuario</label>
-            <input
-              value={usuario}
-              onChange={e => setUsuario(e.target.value)}
-              autoFocus
-              autoComplete="username"
-              className="campo"
-            />
-          </div>
+          {tipo === 'personal' ? (
+            <div>
+              <label className="etiqueta block mb-1.5">Usuario o email</label>
+              <input
+                value={usuario}
+                onChange={e => setUsuario(e.target.value)}
+                autoFocus
+                autoComplete="username"
+                className="campo"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="etiqueta block mb-1.5">Email o CUIT</label>
+              <input
+                value={identificador}
+                onChange={e => setIdentificador(e.target.value)}
+                autoFocus
+                autoComplete="username"
+                className="campo"
+              />
+            </div>
+          )}
 
           <div>
             <label className="etiqueta block mb-1.5">Contraseña</label>
@@ -81,7 +116,9 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-[11px] text-slate-400 mt-5">Panel interno</p>
+        <p className="text-center text-[11px] text-slate-400 mt-5">
+          ¿No tenés cuenta? <Link to={`/registro?tipo=${tipo}`} className="text-sky-400 hover:text-sky-300 font-medium">Registrarse</Link>
+        </p>
       </div>
     </div>
   )

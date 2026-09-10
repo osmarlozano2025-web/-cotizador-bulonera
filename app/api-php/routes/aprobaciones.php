@@ -340,12 +340,25 @@ function catalogoDelPedido(PDO $pdo, array $items): array
     return $porCodigo;
 }
 
+/** Un cliente logueado no debe poder tocar nada de acá salvo crear su propio pedido. */
+function bloquearCliente(array $auth): void
+{
+    if (($auth['rol'] ?? null) === 'Cliente') {
+        jsonError('No tenés acceso a esto', 403);
+    }
+}
+
 function rutaAprobacionesCrear(): void
 {
     $auth = requireAuth();
     $body = cuerpoJson();
     $pedido = $body['pedido'] ?? null;
     $cliente = $body['cliente'] ?? [];
+    // Un cliente logueado sólo puede cotizar para sí mismo: se ignora
+    // cualquier cliente que venga en el cuerpo del pedido.
+    if (($auth['rol'] ?? null) === 'Cliente') {
+        $cliente = ['id' => $auth['clienteId']];
+    }
 
     if (empty($pedido['items'])) jsonError('Pedido vacío', 400);
     // Sin cliente no hay pedido: los descuentos y la proforma dependen de él.
@@ -479,6 +492,7 @@ function rutaAprobacionesCrear(): void
 function rutaAprobacionesListar(): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
     $pdo = obtenerPDO();
     $soloFamilias = familiaPermitida($pdo, $auth);
 
@@ -513,6 +527,7 @@ function rutaAprobacionesListar(): void
 function rutaAprobacionesObtener(string $id): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
     $pdo = obtenerPDO();
     $soloFamilias = familiaPermitida($pdo, $auth);
 
@@ -555,6 +570,7 @@ function itemConPermiso(PDO $pdo, string $aprobacionId, string $itemId, array $a
 function rutaAprobacionesConfirmarItem(string $id, string $itemId): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
     requireRole($auth, ['Deposito', 'Administrador']);
     $pdo = obtenerPDO();
     $item = itemConPermiso($pdo, $id, $itemId, $auth);
@@ -589,6 +605,7 @@ function rutaAprobacionesConfirmarItem(string $id, string $itemId): void
 function rutaAprobacionesSinStock(string $id, string $itemId): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
     requireRole($auth, ['Deposito', 'Administrador']);
     $pdo = obtenerPDO();
     $item = itemConPermiso($pdo, $id, $itemId, $auth);
@@ -673,6 +690,7 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
 function rutaAprobacionesAprobarFamilia(string $id): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
     requireRole($auth, ['Deposito', 'Administrador']);
 
     $body = cuerpoJson();
@@ -774,6 +792,7 @@ function rutaAprobacionesConfirmarPost(string $token): void
 function rutaAprobacionesMarcarEnviado(string $id): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
 
     // Mandarle la cotización al cliente es una atribución comercial: el
     // depósito aprueba stock, no habla con el cliente.
@@ -808,6 +827,7 @@ function rutaAprobacionesMarcarEnviado(string $id): void
 function rutaAprobacionesBultos(string $id): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
     requireRole($auth, ['Deposito', 'Administrador']);
 
     $body = cuerpoJson();
@@ -853,6 +873,7 @@ function rutaAprobacionesBultos(string $id): void
 function rutaAprobacionesLog(string $id): void
 {
     $auth = requireAuth();
+    bloquearCliente($auth);
     $pdo = obtenerPDO();
 
     // El historial cuenta precios y descuentos: el responsable de un depósito

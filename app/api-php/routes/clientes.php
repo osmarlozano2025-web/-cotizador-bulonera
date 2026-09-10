@@ -12,6 +12,9 @@ function castTipoDescuento(array $t): array
 function castCliente(array $c): array
 {
     $c['descuento'] = (float) $c['descuento'];
+    // Nunca debe salir de acá: son datos de login del cliente, no de su ficha.
+    unset($c['passwordHash'], $c['tokenVerificacion'], $c['tokenExpira']);
+    if (array_key_exists('emailVerificado', $c)) $c['emailVerificado'] = (bool) $c['emailVerificado'];
     return $c;
 }
 
@@ -25,7 +28,8 @@ function rutaTiposDescuento(): void
 
 function rutaClientesListar(): void
 {
-    requireAuth();
+    $auth = requireAuth();
+    if ($auth['rol'] === 'Cliente') jsonError('No tenés acceso a esto', 403);
     $pdo = obtenerPDO();
     $q = $_GET['q'] ?? '';
     if ($q !== '') {
@@ -40,7 +44,11 @@ function rutaClientesListar(): void
 
 function rutaClientesObtener(string $id): void
 {
-    requireAuth();
+    $auth = requireAuth();
+    // Un cliente logueado sólo puede pedir su propia ficha, nunca la de otro.
+    if ($auth['rol'] === 'Cliente' && $auth['clienteId'] !== $id) {
+        jsonError('No tenés acceso a esto', 403);
+    }
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM clientes WHERE id = ?');
     $stmt->execute([$id]);
@@ -51,7 +59,8 @@ function rutaClientesObtener(string $id): void
 
 function rutaClientesCrear(): void
 {
-    requireAuth();
+    $auth = requireAuth();
+    if ($auth['rol'] === 'Cliente') jsonError('No tenés acceso a esto', 403);
     $body = cuerpoJson();
     $pdo = obtenerPDO();
 
@@ -84,7 +93,8 @@ function rutaClientesCrear(): void
 
 function rutaClientesActualizar(string $id): void
 {
-    requireAuth();
+    $auth = requireAuth();
+    if ($auth['rol'] === 'Cliente') jsonError('No tenés acceso a esto', 403);
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM clientes WHERE id = ?');
     $stmt->execute([$id]);

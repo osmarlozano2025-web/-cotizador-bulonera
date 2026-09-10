@@ -5,6 +5,7 @@ import SubidorFoto from '../components/SubidorFoto'
 import BuscadorProducto from '../components/BuscadorProducto'
 import TablaProductos from '../components/TablaProductos'
 import { crearAprobacion, condicionesDePago, obtenerConfiguraciones } from '../utils/aprobaciones'
+import { useAuth, authHeaders } from '../context/AuthContext'
 
 const BORRADOR_KEY = 'cb_pedido_borrador'
 
@@ -26,6 +27,11 @@ function leerBorrador() {
 
 export default function NuevoPedido() {
   const navigate = useNavigate()
+  const { user, token } = useAuth()
+  // Un cliente logueado hace su propio pedido: no elige a quién factura,
+  // siempre es a sí mismo. Ver requireAuth()/rol 'Cliente' en el backend,
+  // que además ignora cualquier otro cliente que llegue en el pedido.
+  const esCliente = user?.rol === 'Cliente'
   const borrador = useRef(leerBorrador()).current
   const [cliente, setCliente] = useState(() => borrador?.cliente ?? null)
   const [items, setItems] = useState(() => borrador?.items ?? [])
@@ -44,6 +50,15 @@ export default function NuevoPedido() {
   useEffect(() => {
     obtenerConfiguraciones().then(setConfig).catch(() => {})
   }, [])
+
+  // El cliente logueado siempre es su propia ficha: se trae fija, no se elige.
+  useEffect(() => {
+    if (!esCliente || !user?.clienteId) return
+    fetch(`/api/clientes/${user.clienteId}`, { headers: authHeaders(token) })
+      .then(r => r.json())
+      .then(setCliente)
+      .catch(() => {})
+  }, [esCliente, user?.clienteId, token])
 
   // Se guarda en cada cambio. Con el pedido vacío no hay nada que recuperar,
   // así que se limpia en vez de dejar un borrador fantasma.
@@ -89,7 +104,9 @@ export default function NuevoPedido() {
         {
           items,
           condicionPago,
-          tipoOrigen: pedidoDirecto ? 'directo' : 'cotizacion',
+          // Un cliente ya confirmó al enviarlo él mismo: no hace falta
+          // mandarle un link aparte para que confirme lo que acaba de mandar.
+          tipoOrigen: (esCliente || pedidoDirecto) ? 'directo' : 'cotizacion',
           descuentosFamilia,
         },
         cliente
@@ -163,7 +180,13 @@ export default function NuevoPedido() {
               <span className="chip bg-amber-500/20 text-amber-300">Obligatorio</span>
             )}
           </div>
-          <SelectorCliente value={cliente} onChange={setCliente} />
+          {esCliente ? (
+            <div className="campo bg-white/5 cursor-default">
+              {cliente ? (cliente.razonSocial || cliente.nombre) : 'Cargando...'}
+            </div>
+          ) : (
+            <SelectorCliente value={cliente} onChange={setCliente} />
+          )}
           {faltaCliente ? (
             <p className="text-xs text-amber-400 mt-1.5">
               Elegí un cliente para poder enviar el pedido a aprobación.
@@ -177,7 +200,7 @@ export default function NuevoPedido() {
           )}
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-5 pt-4 border-t border-white/10">
+        <div className={`grid gap-5 pt-4 border-t border-white/10 ${esCliente ? '' : 'sm:grid-cols-2'}`}>
           <div>
             <label className="etiqueta block mb-1.5">Condición de pago</label>
             <select
@@ -191,23 +214,25 @@ export default function NuevoPedido() {
             </select>
           </div>
 
-          <div>
-            <label className="etiqueta block mb-1.5">Tipo de pedido</label>
-            <label className="flex items-start gap-2.5 cursor-pointer border border-white/10 rounded-xl px-3 py-2 hover:bg-white/5 transition">
-              <input
-                type="checkbox"
-                checked={pedidoDirecto}
-                onChange={e => setPedidoDirecto(e.target.checked)}
-                className="mt-0.5 accent-[var(--cb-600)]"
-              />
-              <span className="text-sm text-slate-200">
-                Pedido directo
-                <span className="block text-[11px] text-slate-400">
-                  El cliente ya lo confirmó: no se le manda link.
+          {!esCliente && (
+            <div>
+              <label className="etiqueta block mb-1.5">Tipo de pedido</label>
+              <label className="flex items-start gap-2.5 cursor-pointer border border-white/10 rounded-xl px-3 py-2 hover:bg-white/5 transition">
+                <input
+                  type="checkbox"
+                  checked={pedidoDirecto}
+                  onChange={e => setPedidoDirecto(e.target.checked)}
+                  className="mt-0.5 accent-[var(--cb-600)]"
+                />
+                <span className="text-sm text-slate-200">
+                  Pedido directo
+                  <span className="block text-[11px] text-slate-400">
+                    El cliente ya lo confirmó: no se le manda link.
+                  </span>
                 </span>
-              </span>
-            </label>
-          </div>
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
@@ -274,7 +299,8 @@ export default function NuevoPedido() {
               config={config}
               condicionPago={condicionPago}
               descuentosFamilia={descuentosFamilia}
-              onDescuentoFamilia={cambiarDescuentoFamilia}
+              onDescuentoFamilia={esCliente ? undefined : cambiarDescuentoFamilia}
+              bloquearDescuentos={esCliente}
             />
           </div>
         </div>
