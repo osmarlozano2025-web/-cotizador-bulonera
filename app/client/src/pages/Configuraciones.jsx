@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { etiquetaFamilia } from '../utils/aprobaciones'
+import { esAdmin } from '../utils/roles'
 
 /** Vienen desde la primera versión y se guardan bajo la clave 'descuento_*'. */
 const CONDICIONES_DE_FABRICA = ['contado', '30dias', '60dias']
@@ -94,6 +95,35 @@ export default function Configuraciones() {
     }
   }
 
+  /**
+   * Da de baja una condición de pago agregada por el usuario.
+   *
+   * Las tres de fábrica no se pueden borrar: el motor de precios las
+   * reconstruye en cada lectura y 'contado' es además a lo que cae un pedido
+   * cuya condición ya no existe. Por eso el tachito sólo sale en las otras.
+   */
+  const eliminarCondicionPago = async (tipo) => {
+    const nombre = config.etiquetas_pago?.[tipo] || tipo
+    if (!confirm(`¿Eliminar la condición "${nombre}"?`)) return
+
+    setGuardando(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/configuraciones/pago_${tipo}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Error al eliminar')
+      setExito('✅ Condición de pago eliminada')
+      setTimeout(() => setExito(null), 3000)
+      await cargarConfiguraciones(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   // `silencioso` relee sin vaciar la pantalla: se usa después de guardar,
   // donde mostrar el cartel de "cargando" haría parpadear toda la página.
   const cargarConfiguraciones = async (silencioso = false) => {
@@ -152,7 +182,7 @@ export default function Configuraciones() {
     }
   }
 
-  if (user?.rol !== 'Administrador') {
+  if (!esAdmin(user)) {
     return (
       <div className="p-4 text-rose-400 bg-rose-500/10 rounded-lg max-w-lg">
         ⚠️ Solo administradores pueden acceder a esta sección
@@ -332,7 +362,9 @@ export default function Configuraciones() {
         </div>
 
         <div className="p-6 space-y-3">
-          {config.descuentos_pago && Object.entries(config.descuentos_pago).map(([tipo, valor]) => (
+          {config.descuentos_pago && Object.entries(config.descuentos_pago).map(([tipo, valor]) => {
+            const esDeFabrica = CONDICIONES_DE_FABRICA.includes(tipo)
+            return (
             <div key={tipo} className="flex items-center justify-between gap-4 p-4 border border-white/10 rounded-xl">
               <div className="min-w-0">
                 <h3 className="font-semibold text-slate-100">
@@ -377,9 +409,23 @@ export default function Configuraciones() {
                   }`}
                 />
                 <span className="text-sm text-slate-400">%</span>
+
+                {/* Las de fábrica no llevan tachito: no se pueden borrar. */}
+                {!esDeFabrica && (
+                  <button
+                    onClick={() => eliminarCondicionPago(tipo)}
+                    disabled={guardando}
+                    className="w-9 h-9 rounded-lg border border-white/10 text-slate-400 flex items-center justify-center hover:text-rose-400 hover:border-rose-400/50 hover:bg-rose-500/10 disabled:opacity-50 transition"
+                    title={`Eliminar "${config.etiquetas_pago?.[tipo] || tipo}"`}
+                    aria-label={`Eliminar la condición de pago ${config.etiquetas_pago?.[tipo] || tipo}`}
+                  >
+                    🗑
+                  </button>
+                )}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 

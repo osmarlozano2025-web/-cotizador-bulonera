@@ -11,7 +11,7 @@ const COLORES = {
   D: { badge: 'bg-purple-100 text-purple-700 border-purple-200' },
 }
 
-const VACIO = { nombre: '', razonSocial: '', cuit: '', telefono: '', email: '', localidad: '', provincia: '', tipoDescuento: 'A' }
+const VACIO = { nombre: '', razonSocial: '', cuit: '', telefono: '', email: '', localidad: '', provincia: '', transporte: '', tipoDescuento: 'A' }
 
 function PedidosCliente({ clienteId, pedidos }) {
   const propios = pedidos.filter(p => p.clienteId === clienteId)
@@ -143,6 +143,8 @@ export default function Clientes() {
             {campo('email',      'Email', { type: 'email' })}
             {campo('localidad',  'Localidad')}
             {campo('provincia',  'Provincia')}
+            {/* Sale impreso en la proforma, debajo del domicilio. */}
+            {campo('transporte', 'Transporte', { placeholder: 'Expreso, flete propio…' })}
             <div>
               <label className="text-xs font-medium text-slate-400">Tipo de descuento</label>
               <select value={form.tipoDescuento} onChange={e => setForm(f => ({ ...f, tipoDescuento: e.target.value }))}

@@ -40,6 +40,38 @@ async function req(url, options) {
   return data
 }
 
+/**
+ * Baja el Excel de una familia del pedido para importar en Tango.
+ *
+ * Va con fetch y no con un link común porque la ruta pide la sesión en el
+ * header; el archivo se arma en el servidor sobre la planilla que exportó Tango.
+ */
+export async function descargarExcelTango(id, familia) {
+  const res = await fetch(`/api/aprobaciones/${id}/tango/${encodeURIComponent(familia)}`, { headers: authHeaders() })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || `Error del servidor (${res.status})`)
+  }
+
+  const nombre = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1]
+    || `tango_${id.slice(-8)}_${familia}.xlsx`
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nombre
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+/**
+ * Carga una familia del pedido directo en Tango por la API. Devuelve
+ * { idTango, numero, detalle }; si Tango rechaza algo, el error trae el motivo.
+ */
+export const enviarATango = (id, familia) =>
+  req(`/api/aprobaciones/${id}/tango/${encodeURIComponent(familia)}/enviar`, { method: 'POST' })
+
 export const crearAprobacion = (pedido, cliente) =>
   req('/api/aprobaciones', {
     method: 'POST',

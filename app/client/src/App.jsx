@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
+import { esSoloLectura } from './utils/roles'
 import RequireAuth from './components/RequireAuth'
 import Sidebar from './components/Sidebar'
 import Watermark from './components/Watermark'
@@ -19,12 +20,34 @@ import Login from './pages/Login'
 import Registro from './pages/Registro'
 import VerificarEmail from './pages/VerificarEmail'
 
+/**
+ * Aviso fijo para quien entra en modo sólo lectura.
+ *
+ * Las pantallas se muestran enteras, con sus botones: el backend es el que
+ * corta la escritura. Sin este cartel, el primer intento de guardar sería un
+ * error rojo sin explicación — así se sabe de entrada y en todas las
+ * pantallas, no sólo en la que se llegó a tocar.
+ */
+function AvisoSoloLectura() {
+  const { user } = useAuth()
+  if (!esSoloLectura(user)) return null
+
+  return (
+    <div className="mb-5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200">
+      👁 Estás en <strong>modo sólo lectura</strong>: podés ver todo, pero los cambios no se van a guardar.
+    </div>
+  )
+}
+
 function Layout({ children }) {
   return (
     <div className="min-h-screen flex">
       <Sidebar />
       <main className="flex-1 min-w-0 px-6 py-6">
-        <div className="max-w-6xl mx-auto">{children}</div>
+        <div className="max-w-6xl mx-auto">
+          <AvisoSoloLectura />
+          {children}
+        </div>
       </main>
     </div>
   )

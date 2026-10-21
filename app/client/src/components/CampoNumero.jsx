@@ -14,10 +14,15 @@ import { useState, useEffect } from 'react'
  * Mientras se escribe manda el texto tal cual, porque un "-" suelto todavía no
  * es un número: si se devolviera el valor ya convertido, el signo recién
  * tecleado desaparecería de la pantalla antes de poder escribir el resto.
+ *
+ * `onCommit` avisa recién al salir del campo, con el número ya terminado. Sirve
+ * para lo que no puede correr en cada tecla: redondear una cantidad al bulto
+ * saltaría a 30 apenas se teclea el 2 de 25, sin dejar escribir el resto.
  */
 export default function CampoNumero({
   value,
   onChange,
+  onCommit,
   vacioEnCero = true,
   decimales = true,
   className = '',
@@ -45,7 +50,11 @@ export default function CampoNumero({
       inputMode={decimales ? 'decimal' : 'numeric'}
       value={texto}
       onFocus={() => setEscribiendo(true)}
-      onBlur={() => { setEscribiendo(false); setTexto(desdeAfuera(value)) }}
+      onBlur={() => {
+        setEscribiendo(false)
+        setTexto(desdeAfuera(value))
+        onCommit?.(Number(value) || 0)
+      }}
       onChange={(e) => {
         const crudo = e.target.value.trim()
         if (crudo !== '' && !permitido.test(crudo)) return

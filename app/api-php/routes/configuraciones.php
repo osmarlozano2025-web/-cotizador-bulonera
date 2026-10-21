@@ -112,8 +112,8 @@ function rutaConfiguracionesAdmin() {
     $auth = requireAuth();
     $rol = $auth['rol'] ?? null;
 
-    if ($rol !== 'Administrador') {
-        jsonError('Solo administradores pueden ver todas las configuraciones', 403);
+    if (!in_array($rol, ROLES_ADMIN, true)) {
+        jsonError('No tenés permiso para ver todas las configuraciones', 403);
         return;
     }
 
@@ -149,8 +149,8 @@ function rutaConfiguracionesActualizar($clave) {
     $auth = requireAuth();
     $rol = $auth['rol'] ?? null;
 
-    if ($rol !== 'Administrador') {
-        jsonError('Solo administradores pueden editar configuraciones', 403);
+    if (!in_array($rol, ROLES_ADMIN, true)) {
+        jsonError('No tenés permiso para editar configuraciones', 403);
         return;
     }
 
@@ -199,6 +199,81 @@ function rutaConfiguracionesActualizar($clave) {
     jsonSalida([
         'ok' => true,
         'mensaje' => 'Configuración actualizada',
+        'clave' => $clave,
+    ]);
+}
+
+/**
+ * Baja una condición de pago cargada por el usuario.
+ *
+ * Sólo las 'pago_*'. Las tres de fábrica las reconstruye configDescuentos()
+ * desde PAGOS_DE_FABRICA en cada lectura, así que borrarles la fila no las
+ * sacaría de la lista: volverían con valor 0. Y 'contado' además es el
+ * fallback de condicionPagoValida(), o sea que sin ella no habría a qué caer.
+ *
+ * No borra la fila: la marca inactiva. El motor de precios lee con
+ * 'activo = 1', así que desaparece igual, pero un borrado por error se
+ * deshace, y volver a crear la misma condición la reactiva sola por el
+ * ON DUPLICATE KEY UPDATE de rutaConfiguracionesActualizar().
+ */
+function rutaConfiguracionesEliminar($clave) {
+    $auth = requireAuth();
+    $rol = $auth['rol'] ?? null;
+
+    if (!in_array($rol, ROLES_ADMIN, true)) {
+        jsonError('No tenés permiso para editar configuraciones', 403);
+        return;
+    }
+
+    if (strpos($clave, 'pago_') !== 0) {
+        jsonError('Sólo se pueden eliminar las condiciones de pago que agregaste', 400);
+        return;
+    }
+
+    $pdo = obtenerPDO();
+
+    $stmt = $pdo->prepare('SELECT valor FROM configuraciones WHERE clave = ? AND activo = 1');
+    $stmt->execute([$clave]);
+    $fila = $stmt->fetchColumn();
+    if ($fila === false) {
+        jsonError('Esa condición de pago no existe', 404);
+        return;
+    }
+
+    // La columna condicionPago de aprobaciones guarda la condición sin el
+    // prefijo, igual que las claves de configDescuentos()['pago'].
+    $condicion = substr($clave, strlen('pago_'));
+
+    // Un pedido que todavía no cerró se vuelve a calcular cuando se confirman
+    // sus renglones, y ahí condicionPagoValida() ya no reconocería la condición
+    // borrada: pasaría a Contado y cambiaría el precio a mitad de camino.
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM aprobaciones
+        WHERE condicionPago = ? AND estado <> 'confirmado'
+    ");
+    $stmt->execute([$condicion]);
+    $enCurso = (int) $stmt->fetchColumn();
+
+    if ($enCurso > 0) {
+        jsonError(
+            $enCurso === 1
+                ? 'Hay 1 pedido en curso con esta condición: cerralo antes de eliminarla'
+                : "Hay $enCurso pedidos en curso con esta condición: cerralos antes de eliminarla",
+            409,
+        );
+        return;
+    }
+
+    $pdo->prepare('UPDATE configuraciones SET activo = 0, editado_por = ? WHERE clave = ?')
+        ->execute([$auth['id'], $clave]);
+
+    global $config_cache, $cache_time;
+    $config_cache = [];
+    $cache_time = 0;
+
+    jsonSalida([
+        'ok' => true,
+        'mensaje' => 'Condición de pago eliminada',
         'clave' => $clave,
     ]);
 }

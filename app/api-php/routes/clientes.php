@@ -79,13 +79,16 @@ function rutaClientesCrear(): void
         'email' => $body['email'] ?? '',
         'localidad' => $body['localidad'] ?? '',
         'provincia' => $body['provincia'] ?? '',
+        // Por dónde despacha este cliente. Va en la proforma, debajo del
+        // domicilio, para que el depósito no tenga que preguntarlo.
+        'transporte' => $body['transporte'] ?? '',
         'tipoDescuento' => $tipo['codigo'] ?? null,
         'descuento' => (float) ($tipo['porcentaje'] ?? 0),
     ];
 
     $stmt = $pdo->prepare(
-        'INSERT INTO clientes (id, nombre, razonSocial, cuit, telefono, email, localidad, provincia, tipoDescuento, descuento)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO clientes (id, nombre, razonSocial, cuit, telefono, email, localidad, provincia, transporte, tipoDescuento, descuento)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     );
     $stmt->execute(array_values($nuevo));
     jsonSalida($nuevo, 201);
@@ -117,12 +120,13 @@ function rutaClientesActualizar(string $id): void
         'email' => $body['email'] ?? $actual['email'],
         'localidad' => $body['localidad'] ?? $actual['localidad'],
         'provincia' => $body['provincia'] ?? $actual['provincia'],
+        'transporte' => $body['transporte'] ?? $actual['transporte'],
         'tipoDescuento' => $body['tipoDescuento'] ?? $actual['tipoDescuento'],
         'descuento' => (float) ($tipo ? $tipo['porcentaje'] : $actual['descuento']),
     ];
 
     $stmt = $pdo->prepare(
-        'UPDATE clientes SET nombre=?, razonSocial=?, cuit=?, telefono=?, email=?, localidad=?, provincia=?, tipoDescuento=?, descuento=? WHERE id=?'
+        'UPDATE clientes SET nombre=?, razonSocial=?, cuit=?, telefono=?, email=?, localidad=?, provincia=?, transporte=?, tipoDescuento=?, descuento=? WHERE id=?'
     );
     $stmt->execute([...array_values($datos), $id]);
     jsonSalida(castCliente([...$actual, ...$datos, 'id' => $id]));
@@ -130,7 +134,7 @@ function rutaClientesActualizar(string $id): void
 
 function rutaClientesEliminar(string $id): void
 {
-    requireRole(requireAuth(), ['Administrador']);
+    requireRole(requireAuth(), ROLES_ADMIN);
     $pdo = obtenerPDO();
     $pdo->prepare('DELETE FROM clientes WHERE id = ?')->execute([$id]);
     jsonSalida(['ok' => true]);

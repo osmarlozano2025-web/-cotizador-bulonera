@@ -7,8 +7,31 @@ require_once __DIR__ . '/auth.php';
 function requireAdmin(): array
 {
     $auth = requireAuth();
-    requireRole($auth, ['Administrador']);
+    requireRole($auth, ROLES_ADMIN);
     return $auth;
+}
+
+/**
+ * El rol SuperAdmin sólo lo maneja otro SuperAdmin.
+ *
+ * Esconder la opción en el <select> no alcanza: sin este chequeo, un
+ * Administrador común podría mandar el PUT a mano y asignarse el rol, o
+ * cambiarle la contraseña a un super admin para entrar como él. La regla vive
+ * acá, que es el único lugar por el que pasan todos los pedidos.
+ */
+function requireMandoSuperAdmin(array $auth): void
+{
+    if (!esSuperAdmin($auth)) {
+        jsonError('Sólo un Super Admin puede administrar cuentas Super Admin', 403);
+    }
+}
+
+/** Cuántos super admins activos quedan, sin contar al de este id. */
+function otrosSuperAdminsActivos(PDO $pdo, string $excepto): int
+{
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM personal WHERE rol = 'SuperAdmin' AND activo = 1 AND id != ?");
+    $stmt->execute([$excepto]);
+    return (int) $stmt->fetchColumn();
 }
 
 function rutaPersonalListar(): void
@@ -21,7 +44,7 @@ function rutaPersonalListar(): void
 
 function rutaPersonalCrear(): void
 {
-    requireAdmin();
+    $auth = requireAdmin();
     $body = cuerpoJson();
     $nombre = $body['nombre'] ?? '';
     $usuario = $body['usuario'] ?? '';
@@ -32,6 +55,7 @@ function rutaPersonalCrear(): void
     if (!$nombre || !$usuario || !$password || !$rol) {
         jsonError('Faltan datos obligatorios', 400);
     }
+    if ($rol === 'SuperAdmin') requireMandoSuperAdmin($auth);
 
     $pdo = obtenerPDO();
     $existe = $pdo->prepare('SELECT id FROM personal WHERE usuario = ?');
@@ -61,6 +85,20 @@ function rutaPersonalActualizar(string $id): void
 
     $body = cuerpoJson();
     $usuario = $body['usuario'] ?? $actual['usuario'];
+    $rolNuevo = $body['rol'] ?? $actual['rol'];
+
+    // Tocar a un super admin, o convertir a alguien en uno, es cosa de super admins.
+    if ($actual['rol'] === 'SuperAdmin' || $rolNuevo === 'SuperAdmin') {
+        requireMandoSuperAdmin($auth);
+    }
+    // Que el último super admin no se deje afuera a sí mismo: si se baja el rol
+    // o se da de baja y no queda ningún otro, después no hay quien reponga uno
+    // salvo entrando a la base a mano.
+    $sigueActivo = isset($body['activo']) ? (bool) $body['activo'] : (bool) $actual['activo'];
+    if ($actual['rol'] === 'SuperAdmin' && ($rolNuevo !== 'SuperAdmin' || !$sigueActivo)
+        && otrosSuperAdminsActivos($pdo, $id) === 0) {
+        jsonError('Es el único Super Admin activo: asigná otro antes de cambiarle el rol o darlo de baja', 409);
+    }
 
     if ($usuario !== $actual['usuario']) {
         $existe = $pdo->prepare('SELECT id FROM personal WHERE usuario = ? AND id != ?');
@@ -71,7 +109,7 @@ function rutaPersonalActualizar(string $id): void
     $datos = [
         'nombre' => $body['nombre'] ?? $actual['nombre'],
         'usuario' => $usuario,
-        'rol' => $body['rol'] ?? $actual['rol'],
+        'rol' => $rolNuevo,
         'permisos' => json_encode($body['permisos'] ?? json_decode($actual['permisos'], true)),
         'activo' => isset($body['activo']) ? ($body['activo'] ? 1 : 0) : $actual['activo'],
         'passwordHash' => !empty($body['password']) ? password_hash($body['password'], PASSWORD_BCRYPT) : $actual['passwordHash'],
@@ -89,7 +127,19 @@ function rutaPersonalEliminar(string $id): void
 {
     $auth = requireAdmin();
     if ($id === $auth['id']) jsonError('No podés eliminar tu propio usuario', 400);
+
     $pdo = obtenerPDO();
+    $stmt = $pdo->prepare('SELECT rol FROM personal WHERE id = ?');
+    $stmt->execute([$id]);
+    $rolDestino = $stmt->fetchColumn();
+
+    if ($rolDestino === 'SuperAdmin') {
+        requireMandoSuperAdmin($auth);
+        if (otrosSuperAdminsActivos($pdo, $id) === 0) {
+            jsonError('Es el único Super Admin activo: asigná otro antes de eliminarlo', 409);
+        }
+    }
+
     $pdo->prepare('DELETE FROM personal WHERE id = ?')->execute([$id]);
     jsonSalida(['ok' => true]);
 }

@@ -1,0 +1,18 @@
+{
+	// Puente app → Tango (ver src/index.js). Se publica en
+	// https://puente-tango-bulonera.<cuenta>.workers.dev
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "puente-tango-bulonera",
+	"main": "src/index.js",
+	"compatibility_date": "2026-10-13",
+	"workers_dev": true,
+	"vpc_services": [
+		{
+			// VPC Service que apunta a Tango (puerto 17000) a través del túnel
+			// "bulonera-tango", instalado en el servidor de la bulonera.
+			"binding": "TANGO",
+			"service_id": "01a15e97-9434-71f0-921a-4e96121790ed",
+			"remote": true
+		}
+	]
+}

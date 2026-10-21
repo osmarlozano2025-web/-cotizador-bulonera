@@ -122,6 +122,14 @@ function requireAuth(): array
     $auth['rol'] = $usuario['rol'];
     $auth['permisos'] = json_decode($usuario['permisos'], true) ?: [];
 
+    // Un usuario de sólo lectura entra a todas las pantallas y no cambia nada.
+    // El corte va acá y no ruta por ruta a propósito: cualquier escritura pasa
+    // primero por requireAuth(), así que ninguna ruta —ni las que se agreguen
+    // mañana— puede olvidarse de preguntar. Todo lo que no sea GET se rebota.
+    if (!empty($auth['permisos']['soloLectura']) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+        jsonError('Tu usuario es de sólo lectura: podés ver todo, pero no modificar', 403);
+    }
+
     return $cache = $auth;
 }
 
@@ -130,4 +138,29 @@ function requireRole(array $auth, array $rolesPermitidos): void
     if (!in_array($auth['rol'], $rolesPermitidos, true)) {
         jsonError('No tenés permiso para esta acción', 403);
     }
+}
+
+/**
+ * Los dos roles que mandan. Un SuperAdmin puede todo lo que puede un
+ * Administrador; lo que suma es poder crear otros super admins y tocar las
+ * cuentas que ya lo son. Se usa como lista en vez de escribir 'Administrador'
+ * suelto, para que agregar un rol de mando no obligue a repasar cada ruta.
+ */
+const ROLES_ADMIN = ['SuperAdmin', 'Administrador'];
+
+function esSuperAdmin(array $auth): bool
+{
+    return ($auth['rol'] ?? null) === 'SuperAdmin';
+}
+
+/**
+ * Ve todo, no toca nada.
+ *
+ * Es un tilde sobre el usuario, no un rol aparte: el rol sigue diciendo hasta
+ * dónde llega (qué pantallas, a quién puede editar) y esto sólo decide si
+ * además puede escribir. Así no hay que duplicar cada rol en dos variantes.
+ */
+function esSoloLectura(array $auth): bool
+{
+    return !empty($auth['permisos']['soloLectura']);
 }

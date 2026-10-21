@@ -1,0 +1,2 @@
+# Las plantillas se leen desde PHP; nadie las baja directo por la web.
+Require all denied

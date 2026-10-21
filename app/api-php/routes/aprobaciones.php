@@ -79,7 +79,7 @@ function clientesDelLote(PDO $pdo, array $clienteIds): array
 
     $stmt = $pdo->prepare(
         'SELECT id, nombre, razonSocial, cuit, telefono, email, domicilio,
-                localidad, provincia, codigoCliente, zona, vendedor
+                localidad, provincia, transporte, codigoCliente, zona, vendedor
          FROM clientes WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')'
     );
     $stmt->execute($ids);
@@ -386,15 +386,24 @@ function rutaAprobacionesCrear(): void
     // Un pedido a medio grabar no sirve para nada: o entra entero o no entra.
     $pdo->beginTransaction();
     try {
+        // Quién cargó el pedido. Se toma de la sesión, nunca del JSON: si
+        // viniera en el cuerpo, cualquiera podría firmar un pedido con el
+        // nombre de otro. Queda grabado acá y ninguna ruta lo modifica
+        // después — para sacarlo hay que tocar la base a mano.
+        // Un cliente logueado no está en `personal`, así que no tiene nombre
+        // ahí: el pedido lo cargó él mismo y se firma con el suyo.
+        $creadoPorNombre = nombreUsuario($pdo, $auth['id']) ?? $ficha['nombre'];
+
         $stmt = $pdo->prepare(
             "INSERT INTO aprobaciones
-             (id, token, clienteId, clienteNombre, clienteTelefono, clienteEmail, descuento, total, estado, condicionPago, tipoOrigen, subtotalLista)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'en_aprobacion', ?, ?, 0)"
+             (id, token, clienteId, clienteNombre, clienteTelefono, clienteEmail, descuento, total, estado, condicionPago, tipoOrigen, subtotalLista, creadoPorId, creadoPorNombre)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'en_aprobacion', ?, ?, 0, ?, ?)"
         );
         $stmt->execute([
             $id, $token, $ficha['id'], $ficha['nombre'],
             $ficha['telefono'] ?? '', $ficha['email'] ?? '', $descuento,
             $condicionPago, $tipoOrigen,
+            $auth['id'], $creadoPorNombre,
         ]);
 
         // Ajuste por familia que cargó el vendedor: negativo descuenta, positivo
@@ -443,6 +452,12 @@ function rutaAprobacionesCrear(): void
                 if ($renglon['cantidad'] <= 0) {
                     throw new RuntimeException('Hay un renglón con cantidad cero');
                 }
+
+                // La cantidad que vale es la de acá. Si el renglón llegó al
+                // mínimo de la fracción o del granel se completa hasta el bulto
+                // entero: la pantalla ya lo hace y lo avisa, pero un pedido
+                // puede entrar por la API sin pasar por ella.
+                $renglon['cantidad'] = cantidadEnMultiplos($renglon, $renglon['cantidad']);
 
                 // El desglose se calcula acá y queda congelado: si mañana cambian
                 // los porcentajes, este pedido sigue mostrando los suyos.
@@ -571,7 +586,7 @@ function rutaAprobacionesConfirmarItem(string $id, string $itemId): void
 {
     $auth = requireAuth();
     bloquearCliente($auth);
-    requireRole($auth, ['Deposito', 'Administrador']);
+    requireRole($auth, [...ROLES_ADMIN, 'Deposito']);
     $pdo = obtenerPDO();
     $item = itemConPermiso($pdo, $id, $itemId, $auth);
 
@@ -606,7 +621,7 @@ function rutaAprobacionesSinStock(string $id, string $itemId): void
 {
     $auth = requireAuth();
     bloquearCliente($auth);
-    requireRole($auth, ['Deposito', 'Administrador']);
+    requireRole($auth, [...ROLES_ADMIN, 'Deposito']);
     $pdo = obtenerPDO();
     $item = itemConPermiso($pdo, $id, $itemId, $auth);
 
@@ -691,7 +706,7 @@ function rutaAprobacionesAprobarFamilia(string $id): void
 {
     $auth = requireAuth();
     bloquearCliente($auth);
-    requireRole($auth, ['Deposito', 'Administrador']);
+    requireRole($auth, [...ROLES_ADMIN, 'Deposito']);
 
     $body = cuerpoJson();
     $familia = $body['familia'] ?? '';
@@ -796,7 +811,7 @@ function rutaAprobacionesMarcarEnviado(string $id): void
 
     // Mandarle la cotización al cliente es una atribución comercial: el
     // depósito aprueba stock, no habla con el cliente.
-    $puedeEnviar = ($auth['rol'] ?? '') === 'Administrador'
+    $puedeEnviar = in_array($auth['rol'] ?? '', ROLES_ADMIN, true)
         || !empty($auth['permisos']['puedeEnviarCliente']);
     if (!$puedeEnviar) jsonError('No tenés permiso para enviar cotizaciones al cliente', 403);
 
@@ -828,7 +843,7 @@ function rutaAprobacionesBultos(string $id): void
 {
     $auth = requireAuth();
     bloquearCliente($auth);
-    requireRole($auth, ['Deposito', 'Administrador']);
+    requireRole($auth, [...ROLES_ADMIN, 'Deposito']);
 
     $body = cuerpoJson();
     $bruto = $body['bultos'] ?? null;
@@ -908,4 +923,123 @@ function rutaAprobacionesLog(string $id): void
         'detalle' => $r['detalle'],
         'fecha' => $r['fecha'],
     ], $stmt->fetchAll()));
+}
+
+/**
+ * GET /aprobaciones/:id/tango/:familia — Excel para importar en Tango.
+ *
+ * Uno por familia: en Tango cada familia se factura aparte aunque el cliente
+ * sea el mismo. No toca el pedido; sólo deja anotado en el historial que se
+ * bajó, para saber si una familia ya se mandó a facturar.
+ */
+function rutaAprobacionesExcelTango(string $id, string $familia): void
+{
+    require_once __DIR__ . '/../lib/tango.php';
+
+    $auth = requireAuth();
+    bloquearCliente($auth);
+    $pdo = obtenerPDO();
+
+    $soloFamilias = familiaPermitida($pdo, $auth);
+    if ($soloFamilias !== null && !in_array($familia, $soloFamilias, true)) {
+        jsonError('Esa familia no pertenece a tu depósito', 403);
+    }
+
+    $pedido = buscarPorId($pdo, $id, $soloFamilias);
+    if (!$pedido) jsonError('No encontrado', 404);
+    if ($pedido['estado'] !== 'confirmado') {
+        jsonError('El pedido todavía no fue confirmado por el cliente', 409);
+    }
+
+    $etiqueta = familiasConfiguradas($pdo)[$familia]['nombre'] ?? $familia;
+    try {
+        $contenido = excelPedidoTango($pedido, $familia, $etiqueta);
+    } catch (InvalidArgumentException $e) {
+        jsonError($e->getMessage(), 422);
+    }
+
+    registrarEvento($pdo, $id, 'excel_tango', [
+        'usuarioId' => $auth['id'] ?? null,
+        'usuarioNombre' => nombreUsuario($pdo, $auth['id'] ?? null),
+        'detalle' => "Se bajó el Excel para Tango de $etiqueta",
+    ]);
+
+    $cliente = preg_replace('/[^A-Za-z0-9]+/', '_', $pedido['cliente']['codigoCliente'] ?? 'cliente');
+    $archivo = sprintf('tango_%s_%s_%s.xlsx', $cliente, substr($id, -8), $familia);
+
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $archivo . '"');
+    header('Content-Length: ' . strlen($contenido));
+    header('Cache-Control: no-store');
+    echo $contenido;
+    exit;
+}
+
+/**
+ * POST /aprobaciones/:id/tango/:familia/enviar — carga el pedido de una
+ * familia directo en Tango por la API, sin pasar por el Excel.
+ *
+ * Sólo administración: escribe en el ERP, y Tango no deja corregir ni borrar
+ * pedidos por la API — un error se arregla a mano en Tango. Por lo mismo una
+ * familia que ya se cargó no se vuelve a mandar: queda anotada en el
+ * historial con el evento tango_<familia>.
+ */
+function rutaAprobacionesEnviarTango(string $id, string $familia): void
+{
+    require_once __DIR__ . '/../lib/tango_api.php';
+
+    $auth = requireAuth();
+    requireRole($auth, ROLES_ADMIN);
+    $pdo = obtenerPDO();
+
+    $familias = familiasConfiguradas($pdo);
+    if (!isset($familias[$familia])) jsonError('Familia desconocida', 404);
+    $etiqueta = $familias[$familia]['nombre'];
+
+    $pedido = buscarPorId($pdo, $id);
+    if (!$pedido) jsonError('No encontrado', 404);
+    if ($pedido['estado'] !== 'confirmado') {
+        jsonError('El pedido todavía no fue confirmado por el cliente', 409);
+    }
+
+    // Un envío a la vez por pedido y familia: dos clics seguidos no tienen que
+    // terminar en dos pedidos en Tango. El candado se suelta solo cuando
+    // termina el pedido HTTP y se cierra la conexión a la base.
+    $candado = $pdo->quote("tango:$id:$familia");
+    if ((int) $pdo->query("SELECT GET_LOCK($candado, 0)")->fetchColumn() !== 1) {
+        jsonError('Ya se está cargando en Tango, esperá un momento', 409);
+    }
+
+    $evento = 'tango_' . $familia;
+    $stmt = $pdo->prepare('SELECT detalle FROM pedidos_log WHERE aprobacionId = ? AND evento = ? LIMIT 1');
+    $stmt->execute([$id, $evento]);
+    $previo = $stmt->fetchColumn();
+    if ($previo !== false) jsonError("Esta familia ya está en Tango. $previo", 409);
+
+    try {
+        $api = TangoApi::desdeConfig($pdo);
+        $ids = idsPedidoTango($api, $pedido, $familia, idTalonarioPedidosTango($api, $pdo));
+        $idTango = $api->crear($api->proceso('pedidos'), pedidoTangoDesdeApp($pedido, $familia, $ids, $etiqueta));
+    } catch (InvalidArgumentException $e) {
+        jsonError($e->getMessage(), 422);
+    } catch (TangoApiException $e) {
+        jsonError($e->getMessage() . ($e->detalle ? ' — ' . $e->detalle : ''), 502);
+    }
+
+    // El número que ve la gente en Tango. Si esta lectura falla el pedido igual
+    // quedó cargado, y con el id alcanza para encontrarlo.
+    $numero = null;
+    try {
+        $numero = $api->porId($api->proceso('pedidos'), $idTango)['NRO_PEDIDO'] ?? null;
+    } catch (TangoApiException $e) {
+        error_log("tango: no se pudo leer el número del pedido $idTango: " . $e->getMessage());
+    }
+
+    $detalle = "Cargado en Tango: $etiqueta" . ($numero ? " — pedido N° $numero" : '') . " (id $idTango)";
+    registrarEvento($pdo, $id, $evento, [
+        'usuarioId' => $auth['id'] ?? null,
+        'usuarioNombre' => nombreUsuario($pdo, $auth['id'] ?? null),
+        'detalle' => $detalle,
+    ]);
+    jsonSalida(['ok' => true, 'idTango' => $idTango, 'numero' => $numero, 'detalle' => $detalle]);
 }

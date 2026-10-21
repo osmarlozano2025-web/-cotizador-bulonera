@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/precios.php';
+require_once __DIR__ . '/auth.php';
 
 /**
  * Los depósitos configurados, cada uno con las familias que despacha.
@@ -79,7 +80,7 @@ function familiasDelResponsable(PDO $pdo, string $usuarioId): ?array
  */
 function familiaPermitida(PDO $pdo, array $auth): ?array
 {
-    if (($auth['rol'] ?? '') === 'Administrador') return null; // sin restricción
+    if (in_array($auth['rol'] ?? '', ROLES_ADMIN, true)) return null; // sin restricción
     return familiasDelResponsable($pdo, $auth['id']);
 }
 

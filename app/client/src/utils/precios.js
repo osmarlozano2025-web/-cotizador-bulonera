@@ -62,6 +62,40 @@ export function modoPorCantidad(item, cantidad) {
   return 'unidad'
 }
 
+/**
+ * Redondea la cantidad al múltiplo del bulto con el que sale el renglón.
+ *
+ * Una vez que el pedido llega al mínimo de la fracción, de ahí en más se pide
+ * de a fracciones enteras: con fracción de 15, pedir 25 es pedir 30. Lo mismo
+ * con el granel. Por debajo del mínimo se sigue vendiendo suelto, sin tocar.
+ *
+ * Caso borde: completar la fracción puede cruzar el mínimo del granel — con
+ * fracción 15 y granel 100, pedir 95 daría 105, que ya es granel pero no es un
+ * granel entero. Ahí conviene el granel justo (100): es menos cantidad que 105
+ * y encima entra al precio de granel.
+ *
+ * Espejo de cantidadEnMultiplos() en api-php/lib/precios.php.
+ */
+export function cantidadEnMultiplos(item, cantidad) {
+  const c = Number(cantidad) || 0
+  const modo = modoPorCantidad(item, c)
+  if (modo === 'unidad') return c
+
+  const porBulto = modo === 'granel'
+    ? Number(item?.unidadGranel) || 0
+    : Number(item?.unidadFraccion) || 0
+  if (porBulto <= 0) return c
+
+  let ajustada = Math.ceil(c / porBulto) * porBulto
+
+  const granel = Number(item?.unidadGranel) || 0
+  if (modo === 'fraccion' && granel > 0 && ajustada >= granel) {
+    ajustada = Math.ceil(c / granel) * granel
+  }
+
+  return ajustada
+}
+
 /** Cuántos bultos enteros entran en lo pedido: 150 varillas de a 30 son 5. */
 export function bultosDelRenglon(item, cantidad, modo) {
   const porBulto = modo === 'granel'

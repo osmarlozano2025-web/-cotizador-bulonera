@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { esAdmin } from '../utils/roles'
 import {
   obtenerConfirmacion,
+  descargarExcelTango,
+  enviarATango,
   FAMILIAS_LABEL,
   cantidadAEntregar,
   precioFinal,
@@ -51,6 +55,110 @@ function desglosePedido(items) {
   }
 
   return totales
+}
+
+/**
+ * Un botón por familia para bajar el Excel que se importa en Tango.
+ *
+ * En Tango cada familia es una factura aparte aunque el cliente sea el mismo,
+ * así que cada una baja su propio archivo. Sólo lo ve el personal: el cliente
+ * que abre el link de la proforma no tiene sesión.
+ */
+function ExcelTango({ pedido }) {
+  const { user } = useAuth()
+  const [bajando, setBajando] = useState(null)
+  const [error, setError] = useState('')
+
+  if (!user || user.rol === 'Cliente') return null
+
+  const familias = (pedido.subpedidos || []).filter(s => s.items.some(i => i.estado !== 'sin_stock'))
+  if (!familias.length) return null
+
+  const bajar = async (familia) => {
+    setBajando(familia)
+    setError('')
+    try {
+      await descargarExcelTango(pedido.id, familia)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBajando(null)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-gray-500">Excel para Tango:</span>
+      {familias.map(s => (
+        <button
+          key={s.familia}
+          onClick={() => bajar(s.familia)}
+          disabled={bajando !== null}
+          className="border border-emerald-600 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 font-medium px-3 py-1.5 rounded-lg text-xs transition"
+        >
+          {bajando === s.familia ? 'Armando…' : FAMILIAS_LABEL[s.familia] || s.familia}
+        </button>
+      ))}
+      {error && <span className="text-xs text-red-600">{error}</span>}
+    </div>
+  )
+}
+
+/**
+ * Un botón por familia para cargar el pedido directo en Tango por la API.
+ *
+ * Sólo administración, igual que la ruta: escribe en el ERP, y lo que entra por
+ * la API no se puede corregir ni borrar desde la app. Por eso pide confirmar
+ * y, una vez cargada, la familia muestra el número de Tango en vez del botón.
+ */
+function EnviarTango({ pedido }) {
+  const { user } = useAuth()
+  const [enviando, setEnviando] = useState(null)
+  const [cargados, setCargados] = useState({})
+  const [error, setError] = useState('')
+
+  if (!esAdmin(user)) return null
+
+  const familias = (pedido.subpedidos || []).filter(s => s.items.some(i => i.estado !== 'sin_stock'))
+  if (!familias.length) return null
+
+  const enviar = async (familia) => {
+    const nombre = FAMILIAS_LABEL[familia] || familia
+    const aviso = `Se va a cargar el pedido de ${nombre} en Tango.\n\n`
+      + 'Desde la app no se puede borrar después: si algo sale mal se corrige en Tango. ¿Seguir?'
+    if (!window.confirm(aviso)) return
+    setEnviando(familia)
+    setError('')
+    try {
+      const r = await enviarATango(pedido.id, familia)
+      setCargados(c => ({ ...c, [familia]: r.numero ? `N° ${r.numero}` : `id ${r.idTango}` }))
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setEnviando(null)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-gray-500">Enviar a Tango:</span>
+      {familias.map(s => cargados[s.familia] ? (
+        <span key={s.familia} className="text-xs text-emerald-700 font-medium">
+          {FAMILIAS_LABEL[s.familia] || s.familia} ✓ {cargados[s.familia]}
+        </span>
+      ) : (
+        <button
+          key={s.familia}
+          onClick={() => enviar(s.familia)}
+          disabled={enviando !== null}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 font-medium px-3 py-1.5 rounded-lg text-xs transition"
+        >
+          {enviando === s.familia ? 'Cargando…' : FAMILIAS_LABEL[s.familia] || s.familia}
+        </button>
+      ))}
+      {error && <span className="text-xs text-red-600 max-w-md">{error}</span>}
+    </div>
+  )
 }
 
 /** Una línea de descuento: verde si resta, ámbar si suma, oculta si no hubo. */
@@ -140,6 +248,10 @@ export default function Proforma() {
 
       <div className="no-print sticky top-0 z-10 bg-white border-b px-6 py-3 flex items-center justify-between">
         <Link to="/cotizaciones" className="text-sm text-gray-500 hover:text-gray-700">← Volver a Cotizaciones</Link>
+        <div className="flex flex-col items-center gap-1.5">
+          <ExcelTango pedido={pedido} />
+          <EnviarTango pedido={pedido} />
+        </div>
         <button
           onClick={() => window.print()}
           className="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-5 py-2 rounded-lg text-sm transition"
@@ -169,6 +281,13 @@ export default function Proforma() {
             <p className="text-[11px] text-gray-400">
               Pago: {pedido.condicionPagoEtiqueta || 'Contado'}
             </p>
+            {/* Quién cargó el pedido. Se graba al crearlo y no lo edita
+                ninguna pantalla ni ruta de la API. */}
+            {pedido.creadoPorNombre && (
+              <p className="text-[11px] text-gray-500 font-medium">
+                Pedido realizado por: {pedido.creadoPorNombre}
+              </p>
+            )}
           </div>
         </div>
 
@@ -182,6 +301,7 @@ export default function Proforma() {
             )}
             {cliente?.cuit && <p><span className="text-gray-400">CUIT:</span> {cliente.cuit}</p>}
             {cliente?.domicilio && <p><span className="text-gray-400">Domicilio:</span> {cliente.domicilio}</p>}
+            {cliente?.transporte && <p><span className="text-gray-400">Transporte:</span> {cliente.transporte}</p>}
             {(cliente?.localidad || cliente?.provincia) && (
               <p><span className="text-gray-400">Ubicación:</span> {[cliente?.localidad, cliente?.provincia].filter(Boolean).join(', ')}</p>
             )}

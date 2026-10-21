@@ -24,3 +24,11 @@ desktop.ini
 
 # El paquete armado para subir al servidor: se regenera con npm run deploy:paquete
 dist-deploy/
+
+# Planillas exportadas de Tango: traen los códigos de todos los clientes y
+# artículos de la bulonera. No van a un repositorio público. La del backend
+# (app/api-php/plantillas/tango-pedidos.xlsx) se sube igual con el deploy,
+# que copia desde el disco; si falta, se exporta de nuevo desde Tango:
+# Ventas → Pedidos → Apertura → Excel → Exportar → "Sin datos".
+docs/tango/**/*.xlsx
+app/api-php/plantillas/*.xlsx

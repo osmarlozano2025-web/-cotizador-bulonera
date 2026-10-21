@@ -6,6 +6,7 @@ require_once __DIR__ . '/routes/clientes.php';
 require_once __DIR__ . '/routes/productos.php';
 require_once __DIR__ . '/routes/aprobaciones.php';
 require_once __DIR__ . '/routes/integraciones.php';
+require_once __DIR__ . '/routes/tango.php';
 require_once __DIR__ . '/routes/configuraciones.php';
 
 /**
@@ -70,14 +71,22 @@ $rutas = [
     ['POST', '#^/aprobaciones/([^/]+)/marcar-enviado$#', fn($id) => rutaAprobacionesMarcarEnviado($id)],
     ['PUT',  '#^/aprobaciones/([^/]+)/bultos$#', fn($id) => rutaAprobacionesBultos($id)],
     ['GET', '#^/aprobaciones/([^/]+)/log$#', fn($id) => rutaAprobacionesLog($id)],
+    ['GET', '#^/aprobaciones/([^/]+)/tango/([^/]+)$#', fn($id, $f) => rutaAprobacionesExcelTango($id, $f)],
+    ['POST', '#^/aprobaciones/([^/]+)/tango/([^/]+)/enviar$#', fn($id, $f) => rutaAprobacionesEnviarTango($id, $f)],
     ['GET', '#^/aprobaciones/([^/]+)$#', fn($id) => rutaAprobacionesObtener($id)],
 
     ['GET', '#^/integraciones$#', fn() => rutaIntegracionesObtener()],
     ['PUT', '#^/integraciones$#', fn() => rutaIntegracionesActualizar()],
+    ['POST', '#^/integraciones/tango/probar$#', fn() => rutaIntegracionesProbarTango()],
+    ['GET', '#^/integraciones/tango/explorar$#', fn() => rutaIntegracionesExplorarTango()],
+
+    ['GET', '#^/tango/clientes$#', fn() => rutaTangoClientes()],
+    ['GET', '#^/tango/articulos$#', fn() => rutaTangoArticulos()],
 
     ['GET', '#^/configuraciones$#', fn() => rutaConfiguracionesObtener()],
     ['GET', '#^/configuraciones/admin$#', fn() => rutaConfiguracionesAdmin()],
     ['PUT', '#^/configuraciones/([^/]+)$#', fn($c) => rutaConfiguracionesActualizar($c)],
+    ['DELETE', '#^/configuraciones/([^/]+)$#', fn($c) => rutaConfiguracionesEliminar($c)],
 ];
 
 foreach ($rutas as [$metodoRuta, $patron, $handler]) {

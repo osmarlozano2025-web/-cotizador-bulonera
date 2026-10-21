@@ -1,23 +1,33 @@
 import { useEffect, useState } from 'react'
-import { authHeaders } from '../context/AuthContext'
+import { authHeaders, useAuth } from '../context/AuthContext'
+import { SECCIONES as GRUPOS_DEL_MENU } from '../utils/secciones'
+import { esSuperAdmin } from '../utils/roles'
 
-const SECCIONES = [
-  { key: 'nuevo-pedido', label: 'Nuevo Pedido' },
-  { key: 'aprobaciones', label: 'Aprobaciones' },
-  { key: 'cotizaciones', label: 'Cotizaciones' },
-  { key: 'clientes', label: 'Clientes' },
-  { key: 'productos', label: 'Productos' },
-  { key: 'integraciones', label: 'Integraciones' },
-  { key: 'personal', label: 'Personal' },
-]
+// Las mismas secciones que el menú lateral, sin copiarlas a mano: esta lista
+// era una copia y se había quedado sin 'configuraciones', así que a quien se
+// le aplicaba un preset desde acá le desaparecía esa pantalla. Derivándola,
+// una sección nueva en el menú aparece sola.
+const SECCIONES = GRUPOS_DEL_MENU.flatMap(g => g.items.map(i => ({ key: i.key, label: i.label })))
 
+/**
+ * Cambiar de rol reescribe los permisos, así que el tilde de sólo lectura
+ * arranca apagado en todos: es una decisión aparte del rol, que se marca a
+ * mano sobre la persona.
+ */
 const PRESETS = {
-  Administrador: { secciones: SECCIONES.map(s => s.key), puedeAprobarFamilias: true, puedeEnviarCliente: true },
-  Vendedor: { secciones: ['nuevo-pedido', 'aprobaciones', 'cotizaciones', 'clientes', 'productos'], puedeAprobarFamilias: false, puedeEnviarCliente: true },
-  Deposito: { secciones: ['aprobaciones'], puedeAprobarFamilias: true, puedeEnviarCliente: false },
+  // Ve todo, igual que un Administrador. Lo que lo distingue no son las
+  // secciones sino poder crear y tocar otros super admins (se controla en el backend).
+  SuperAdmin: { secciones: SECCIONES.map(s => s.key), puedeAprobarFamilias: true, puedeEnviarCliente: true, soloLectura: false },
+  Administrador: { secciones: SECCIONES.map(s => s.key), puedeAprobarFamilias: true, puedeEnviarCliente: true, soloLectura: false },
+  Vendedor: { secciones: ['nuevo-pedido', 'aprobaciones', 'cotizaciones', 'clientes', 'productos'], puedeAprobarFamilias: false, puedeEnviarCliente: true, soloLectura: false },
+  Deposito: { secciones: ['aprobaciones'], puedeAprobarFamilias: true, puedeEnviarCliente: false, soloLectura: false },
   // Con lo que arranca cualquiera que se registró solo: no ve nada hasta que se le asigna un rol de verdad.
-  Pendiente: { secciones: [], puedeAprobarFamilias: false, puedeEnviarCliente: false },
+  Pendiente: { secciones: [], puedeAprobarFamilias: false, puedeEnviarCliente: false, soloLectura: false },
 }
+
+// El valor guardado en la base es de una palabra; en pantalla se lee mejor así.
+const ETIQUETA_ROL = { SuperAdmin: 'Super Admin', Deposito: 'Depósito' }
+const etiquetaRol = (rol) => ETIQUETA_ROL[rol] || rol
 
 const VACIO = {
   nombre: '', usuario: '', password: '', rol: 'Vendedor',
@@ -33,6 +43,8 @@ async function req(url, options) {
 }
 
 export default function Personal() {
+  const { user } = useAuth()
+  const soySuperAdmin = esSuperAdmin(user)
   const [lista, setLista] = useState([])
   const [cargando, setCargando] = useState(true)
   const [form, setForm] = useState(VACIO)
@@ -139,6 +151,9 @@ export default function Personal() {
               <label className="text-xs font-medium text-slate-400">Rol</label>
               <select value={form.rol} onChange={e => cambiarRol(e.target.value)}
                 className="w-full mt-1 border rounded-lg px-3 py-2 text-sm bg-white/5 focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]">
+                {/* Sólo un super admin puede repartir este rol. El backend lo vuelve
+                    a chequear: esconder la opción es comodidad, no la protección. */}
+                {soySuperAdmin && <option value="SuperAdmin">Super Admin</option>}
                 <option value="Administrador">Administrador</option>
                 <option value="Vendedor">Vendedor</option>
                 <option value="Deposito">Depósito</option>
@@ -159,7 +174,7 @@ export default function Personal() {
             </div>
           </div>
 
-          <div className="flex gap-6">
+          <div className="flex gap-6 flex-wrap">
             <label className="flex items-center gap-2 text-sm text-slate-200">
               <input type="checkbox" checked={form.permisos.puedeAprobarFamilias} onChange={() => toggleFlag('puedeAprobarFamilias')} />
               Puede aprobar stock por depósito
@@ -169,6 +184,25 @@ export default function Personal() {
               Puede enviar cotización al cliente
             </label>
           </div>
+
+          {/* Va aparte de los otros dos: no suma un permiso, se los saca
+              todos. El rol sigue diciendo qué pantallas ve; esto decide si
+              además puede tocar algo. */}
+          <label className="flex items-start gap-2.5 text-sm text-slate-200 border border-amber-400/30 bg-amber-500/5 rounded-xl px-3 py-2.5">
+            <input
+              type="checkbox"
+              checked={!!form.permisos.soloLectura}
+              onChange={() => toggleFlag('soloLectura')}
+              className="mt-0.5"
+            />
+            <span>
+              Sólo lectura
+              <span className="block text-[11px] text-slate-400">
+                Ve todas las secciones que tenga marcadas, pero no puede crear,
+                editar ni eliminar nada en ninguna de ellas.
+              </span>
+            </span>
+          </label>
 
           {error && <p className="text-xs text-rose-400 bg-rose-500/10 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
@@ -206,13 +240,21 @@ export default function Personal() {
                     <span className={`text-xs font-semibold rounded px-2 py-0.5 border ${
                       p.rol === 'Pendiente'
                         ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                        : 'bg-sky-500/10 text-sky-400 border-blue-200'
-                    }`}>{p.rol}</span>
+                        : p.rol === 'SuperAdmin'
+                          ? 'bg-violet-500/10 text-violet-300 border-violet-500/30'
+                          : 'bg-sky-500/10 text-sky-400 border-blue-200'
+                    }`}>{etiquetaRol(p.rol)}</span>
                   </td>
                   <td className="px-4 py-2.5 text-xs text-slate-400">{p.permisos.secciones.length} secciones</td>
                   <td className="px-4 py-2.5 text-right">
-                    <button onClick={() => editar(p)} className="text-xs text-sky-400 hover:text-sky-300 font-medium mr-3">Editar</button>
-                    <button onClick={() => eliminar(p.id)} className="text-xs text-red-400 hover:text-rose-400 font-medium">Eliminar</button>
+                    {p.rol === 'SuperAdmin' && !soySuperAdmin ? (
+                      <span className="text-xs text-slate-500">—</span>
+                    ) : (
+                      <>
+                        <button onClick={() => editar(p)} className="text-xs text-sky-400 hover:text-sky-300 font-medium mr-3">Editar</button>
+                        <button onClick={() => eliminar(p.id)} className="text-xs text-red-400 hover:text-rose-400 font-medium">Eliminar</button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

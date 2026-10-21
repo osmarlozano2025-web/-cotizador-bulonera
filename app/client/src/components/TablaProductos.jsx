@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { etiquetaFamilia, numeroDeDeposito, etiquetaPago } from '../utils/aprobaciones'
 import CampoNumero from './CampoNumero'
 import {
   precioUnitario, precioBase, agruparPorFamilia,
   textoTope, ajusteDentroDelTope,
-  modoPorCantidad, textoModo, LABEL_MODO,
+  modoPorCantidad, textoModo, LABEL_MODO, cantidadEnMultiplos,
 } from '../utils/precios'
 
 /** Cada modo con su color, para reconocerlo de un vistazo en el renglón. */
@@ -34,6 +35,76 @@ const pct = (n) => {
   const v = Number(n) || 0
   if (v === 0) return '—'
   return v < 0 ? `−${Math.abs(v)}%` : `+${v}%`
+}
+
+/**
+ * Una línea del detalle de descuentos: verde si resta, ámbar si suma.
+ *
+ * Se oculta cuando no hubo: una fila en cero no explica nada y ensucia la
+ * lista. Misma convención que la proforma, para que el vendedor vea en la
+ * carga lo mismo que después le llega al cliente.
+ */
+function LineaDescuento({ etiqueta, monto }) {
+  const redondeado = Math.round(monto * 100) / 100
+  if (redondeado === 0) return null
+  const descuenta = redondeado > 0
+
+  return (
+    <div className="px-4 py-1.5 flex justify-between text-xs">
+      <span className="text-slate-400">{etiqueta}</span>
+      <span className={`tabular font-medium ${descuenta ? 'text-emerald-400' : 'text-amber-400'}`}>
+        {descuenta ? '−' : '+'}{money(Math.abs(redondeado))}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Avisa que la cantidad se completó hasta el bulto entero.
+ *
+ * No es un cartel al pasar: la cantidad ya cambió y el precio del renglón con
+ * ella, así que se muestra parado en el medio para que nadie lo pase por alto.
+ */
+function AvisoMultiplo({ aviso, onCerrar }) {
+  if (!aviso) return null
+
+  const unidad = aviso.modo === 'granel' ? 'Los graneles' : 'Las fracciones'
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={onCerrar}
+    >
+      <div
+        className="bg-slate-900 border border-white/10 rounded-2xl shadow-xl max-w-sm w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 border-b border-white/10">
+          <h3 className="text-base font-semibold text-slate-100">
+            Se ajustó la cantidad
+          </h3>
+        </div>
+        <div className="p-6 space-y-3 text-sm text-slate-300">
+          <p className="text-slate-400 text-xs">{aviso.descripcion}</p>
+          <p>
+            {unidad} de este producto van de {aviso.porBulto} en {aviso.porBulto}.
+          </p>
+          <p className="text-slate-100 font-medium">
+            Pediste {aviso.pedida} y quedó en {aviso.ajustada}.
+          </p>
+        </div>
+        <div className="px-6 py-4 border-t border-white/10 flex justify-end">
+          <button
+            onClick={onCerrar}
+            autoFocus
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-700 rounded-lg text-white font-medium transition"
+          >
+            Entendido
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /**
@@ -86,6 +157,8 @@ export default function TablaProductos({
   // lo decide el vendedor cuando lo revisa.
   bloquearDescuentos = false,
 }) {
+  const [aviso, setAviso] = useState(null)
+
   const topeDe = (familia) => config?.descuentos_familia?.[familia] ?? 0
   const ajusteDe = (familia) => ajusteDentroDelTope(descuentosFamilia[familia] ?? 0, topeDe(familia))
   const unitario = (item, familia) =>
@@ -101,6 +174,28 @@ export default function TablaProductos({
 
   const eliminar = (idx) => onChange(prev => prev.filter((_, i) => i !== idx))
 
+  /**
+   * Completa la cantidad hasta el bulto entero cuando se sale del campo.
+   *
+   * Corre en el blur y no en cada tecla: al escribir 25 con fracción de 15,
+   * ajustar al vuelo lo saltaría a 30 apenas se teclea el 2.
+   */
+  const ajustarAlBulto = (idx, item) => {
+    const pedida = Number(item.cantidad) || 0
+    const ajustada = cantidadEnMultiplos(item, pedida)
+    if (ajustada === pedida) return
+
+    const modo = modoPorCantidad(item, ajustada)
+    actualizar(idx, 'cantidad', ajustada)
+    setAviso({
+      descripcion: item.descripcion,
+      pedida,
+      ajustada,
+      modo,
+      porBulto: modo === 'granel' ? Number(item.unidadGranel) : Number(item.unidadFraccion),
+    })
+  }
+
   const grupos = agruparPorFamilia(items, config)
   const ajustePago = Number(config?.descuentos_pago?.[condicionPago]) || 0
 
@@ -109,10 +204,43 @@ export default function TablaProductos({
     (s, g) => s + g.filas.reduce((t, { item }) => t + item.cantidad * unitario(item, g.familia), 0),
     0
   )
-  const diferencia = totalBase - totalFinal
+
+  // Cuánto puso o sacó cada paso de la cadena, en pesos. Igual que en la
+  // proforma: la cadena es multiplicativa, así que el aporte de cada paso se
+  // mide contra el precio que le llegó a ESE paso, no contra el de lista.
+  // Todos los descuentos ya están aplicados en cada renglón — esto es el
+  // detalle informativo de por qué el neto es el que es.
+  const desglose = { familia: 0, producto: 0, cliente: 0, pago: 0, iva: {} }
+  for (const { familia, filas } of grupos) {
+    const ajuste = ajusteDe(familia)
+    for (const { item } of filas) {
+      const cant = Number(item.cantidad) || 0
+      const p0 = precioBase(item)
+      const p1 = p0 * (1 + ajuste / 100)
+      const p2 = p1 * (1 + (Number(item.descuentoItem) || 0) / 100)
+      const p3 = p2 * (1 - Math.abs(Number(descuento) || 0) / 100)
+      const p4 = p3 * (1 + ajustePago / 100)
+
+      desglose.familia += (p0 - p1) * cant
+      desglose.producto += (p1 - p2) * cant
+      desglose.cliente += (p2 - p3) * cant
+      desglose.pago += (p3 - p4) * cant
+
+      // El IVA es del producto y no entra en la cadena: se suma aparte, sobre
+      // el neto. El 21% es el de fábrica si el producto no trae el suyo.
+      const tasa = Number(item.ivaPorcentaje ?? 21)
+      desglose.iva[tasa] = (desglose.iva[tasa] || 0) + p4 * cant * (tasa / 100)
+    }
+  }
+
+  const tasasIva = Object.keys(desglose.iva).map(Number).sort((a, b) => b - a)
+  const totalIva = tasasIva.reduce((s, t) => s + desglose.iva[t], 0)
+  const totalConIva = totalFinal + totalIva
 
   return (
     <div className="space-y-5">
+      <AvisoMultiplo aviso={aviso} onCerrar={() => setAviso(null)} />
+
       <div className="overflow-x-auto -mx-5 px-5">
         <table className="w-full text-sm min-w-[680px]">
           <thead>
@@ -187,6 +315,7 @@ export default function TablaProductos({
                           vacioEnCero={false}
                           decimales={false}
                           onChange={(n) => actualizar(idx, 'cantidad', Math.max(1, n || 1))}
+                          onCommit={() => ajustarAlBulto(idx, item)}
                           className="tabular w-16 border border-white/10 rounded-lg px-2 py-1.5 text-right text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)] ml-auto block"
                         />
                       </td>
@@ -253,61 +382,46 @@ export default function TablaProductos({
         </table>
       </div>
 
-      {/* Cómo se llega al total, paso por paso */}
+      {/* Cómo se llega al total, paso por paso. Los descuentos ya están
+          aplicados renglón por renglón: acá van en pesos, para explicar de
+          dónde sale el neto. Después el IVA y el total que se cobra. */}
       <div className="flex justify-end">
         <div className="w-full sm:w-96 rounded-2xl border border-white/10 overflow-hidden">
           <div className="px-4 py-2.5 flex justify-between text-sm text-slate-400 bg-white/5">
-            <span>Subtotal</span>
+            <span>Subtotal (lista)</span>
             <span className="tabular">{money(totalBase)}</span>
           </div>
 
           <div className="divide-y divide-white/5">
-            {grupos.map(({ familia }) => {
-              const ajuste = ajusteDe(familia)
-              if (ajuste === 0) return null
-              return (
-                <div key={familia} className="px-4 py-1.5 flex justify-between text-xs">
-                  <span className="text-slate-400">
-                    Descuento {etiquetaFamilia(config, familia)}
-                  </span>
-                  <span className={`tabular font-medium ${ajuste < 0 ? 'text-emerald-600' : 'text-amber-400'}`}>
-                    {pct(ajuste)}
-                  </span>
-                </div>
-              )
-            })}
-
-            {descuento > 0 && (
-              <div className="px-4 py-1.5 flex justify-between text-xs">
-                <span className="text-slate-400">Descuento del cliente</span>
-                <span className="tabular font-medium text-emerald-600">−{descuento}%</span>
-              </div>
-            )}
-
-            <div className="px-4 py-1.5 flex justify-between text-xs">
-              <span className="text-slate-400">
-                Pago {etiquetaPago(config, condicionPago)}
-              </span>
-              <span className={`tabular font-medium ${
-                ajustePago < 0 ? 'text-emerald-600' : ajustePago > 0 ? 'text-amber-400' : 'text-slate-400'
-              }`}>
-                {pct(ajustePago)}
-              </span>
-            </div>
+            <LineaDescuento etiqueta="Descuento por familia" monto={desglose.familia} />
+            <LineaDescuento etiqueta="Descuento por renglón (granel/fracción)" monto={desglose.producto} />
+            <LineaDescuento
+              etiqueta={`Descuento del cliente${descuento > 0 ? ` (${descuento}%)` : ''}`}
+              monto={desglose.cliente}
+            />
+            <LineaDescuento
+              etiqueta={`Pago ${etiquetaPago(config, condicionPago)}${ajustePago ? ` (${pct(ajustePago)})` : ''}`}
+              monto={desglose.pago}
+            />
           </div>
 
-          {diferencia !== 0 && (
-            <div className="px-4 py-1.5 flex justify-between text-xs border-t border-white/5">
-              <span className="text-slate-400">{diferencia > 0 ? 'Ahorro' : 'Recargo'}</span>
-              <span className={`tabular font-medium ${diferencia > 0 ? 'text-emerald-600' : 'text-amber-400'}`}>
-                {diferencia > 0 ? '−' : '+'}{money(Math.abs(diferencia))}
+          <div className="px-4 py-2 flex justify-between text-sm font-medium border-t border-white/10">
+            <span className="text-slate-300">Neto</span>
+            <span className="tabular text-slate-200">{money(totalFinal)}</span>
+          </div>
+
+          {tasasIva.map(tasa => (
+            <div key={tasa} className="px-4 py-1.5 flex justify-between text-xs">
+              <span className="text-slate-400">
+                IVA {tasa % 1 === 0 ? tasa : tasa.toFixed(1).replace('.', ',')}%
               </span>
+              <span className="tabular text-slate-400">+{money(desglose.iva[tasa])}</span>
             </div>
-          )}
+          ))}
 
           <div className="px-4 py-3 flex justify-between items-center border-t border-white/10 bg-white/5">
             <span className="font-semibold text-slate-300">Total</span>
-            <span className="tabular text-xl font-bold text-slate-100">{money(totalFinal)}</span>
+            <span className="tabular text-xl font-bold text-emerald-300">{money(totalConIva)}</span>
           </div>
         </div>
       </div>
