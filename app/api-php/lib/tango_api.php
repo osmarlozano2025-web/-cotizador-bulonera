@@ -33,7 +33,15 @@ const TANGO_PROCESOS_POR_DEFECTO = [
     'clientes' => 2117,
     'depositos' => 2941,
     'monedas' => 1660,
+    'transportes' => 960,
 ];
+
+/**
+ * Transporte para los clientes que no tienen uno en su ficha de Tango: el
+ * "00", que en este Tango es el que no indica transporte (figura con guiones).
+ * Tango rechaza el pedido sin transporte ("El campo ID_GVA24 es requerido").
+ */
+const TANGO_TRANSPORTE_SIN_FICHA = '00';
 
 /** Estado con el que Tango guarda el pedido: 2 = Aprobado (el que usa el ejemplo oficial). */
 const TANGO_ESTADO_APROBADO = 2;
@@ -335,8 +343,15 @@ function idsPedidoTango(TangoApi $api, array $pedido, string $familia, int $idTa
     if ($codigoCliente === '') {
         throw new InvalidArgumentException('El cliente no tiene código de Tango cargado en su ficha');
     }
-    $cliente = $api->idPorCodigo($api->proceso('clientes'), 'AXV_CLIENTE.COD_GVA14', $codigoCliente, 'ID_GVA14');
-    if (!$cliente) throw new InvalidArgumentException("El cliente $codigoCliente no existe en Tango");
+    $ficha = $api->filtrar($api->proceso('clientes'), 'AXV_CLIENTE.COD_GVA14 = ' . TangoApi::literalSql($codigoCliente))[0] ?? null;
+    if (empty($ficha['ID_GVA14'])) throw new InvalidArgumentException("El cliente $codigoCliente no existe en Tango");
+    $cliente = (int) $ficha['ID_GVA14'];
+
+    // Tango no acepta un pedido sin transporte: va el de la ficha del cliente
+    // y, si la ficha no tiene, el que no indica transporte.
+    $codigoTransporte = trim((string) ($ficha['GVA24_CODIGO'] ?? '')) ?: TANGO_TRANSPORTE_SIN_FICHA;
+    $transporte = $api->idPorCodigo($api->proceso('transportes'), 'GVA24.COD_TRANSP', $codigoTransporte, 'ID_GVA24');
+    if (!$transporte) throw new InvalidArgumentException("El transporte $codigoTransporte no existe en Tango");
 
     $codigoDeposito = TANGO_DEPOSITOS[$familia] ?? TANGO_DEPOSITO_POR_DEFECTO;
     $deposito = $api->idPorCodigo($api->proceso('depositos'), 'STA22.COD_STA22', $codigoDeposito, 'ID_STA22');
@@ -357,6 +372,7 @@ function idsPedidoTango(TangoApi $api, array $pedido, string $familia, int $idTa
 
     return [
         'cliente' => $cliente,
+        'transporte' => $transporte,
         'talonario' => $idTalonario,
         'moneda' => $moneda,
         'depositos' => [$codigoDeposito => $deposito],
