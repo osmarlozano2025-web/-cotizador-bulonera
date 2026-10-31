@@ -3,6 +3,8 @@
 Cliente: Bulonera Córdoba. Producto: **Córdoba Bulones – Cotizador App** (cotizador, aprobaciones por depósito, pedidos).
 Sitio en vivo: https://bulonera.nazarenolozano.de
 
+**👉 Todo el contexto (qué está hecho, Tango, decisiones, pendientes): [`docs/CONTEXTO-PROYECTO.md`](docs/CONTEXTO-PROYECTO.md)**
+
 Esta carpeta es copia completa de `MASTER/➡️ Bulonera Cordoba` (12/10/2026), más material de `Tango-prueba`.
 Contiene TODO para trabajar: código, `.git` con historial, `.env`, `respaldos/credenciales.txt`, respaldos SQL, datos y `dist`.
 Lo único que no se copió es `node_modules` → correr `npm install` (ver `SETUP-STATUS.md`).
