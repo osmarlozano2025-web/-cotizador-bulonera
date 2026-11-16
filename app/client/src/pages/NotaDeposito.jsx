@@ -87,11 +87,20 @@ export default function NotaDeposito() {
     <div className="documento min-h-screen bg-gray-100 print:bg-white">
       <style>{`
         @media print {
-          @page { size: A4; margin: 12mm; }
-          body { background: white; }
-          .no-print { display: none !important; }
-          .hoja { box-shadow: none !important; margin: 0 !important; }
+          /* Hoja A4 vertical, sola: sin menú lateral, fondo oscuro ni marca de agua. */
+          @page { size: A4 portrait; margin: 12mm; }
+          html, body { background: #fff !important; color: #111 !important; }
+          body::before, body::after { display: none !important; }
+          aside, .fixed, .no-print { display: none !important; }
+          main { padding: 0 !important; }
+          main > div { max-width: none !important; margin: 0 !important; }
+          .documento { min-height: 0 !important; background: #fff !important; }
+          .hoja { box-shadow: none !important; margin: 0 !important; padding: 0 !important; width: auto !important; max-width: none !important; }
           .salto { break-before: page; }
+          /* El listado sigue en la hoja siguiente con su encabezado, sin cortar renglones. */
+          thead { display: table-header-group; }
+          tr { break-inside: avoid; }
+          .firmas { break-inside: avoid; }
         }
       `}</style>
 
@@ -117,7 +126,7 @@ export default function NotaDeposito() {
         return (
           <div
             key={sub.clave}
-            className={`hoja max-w-3xl mx-auto bg-white shadow-sm my-6 p-8 print:my-0 print:shadow-none print:max-w-none ${idx > 0 ? 'salto' : ''}`}
+            className={`hoja w-[210mm] max-w-full mx-auto bg-white text-gray-900 shadow-sm my-6 p-8 print:my-0 print:shadow-none print:max-w-none ${idx > 0 ? 'salto' : ''}`}
           >
             <div className="flex items-start justify-between border-b-2 border-gray-800 pb-2 mb-4">
               <div>
@@ -216,7 +225,7 @@ export default function NotaDeposito() {
               )}
             </div>
 
-            <div className="mt-8 grid grid-cols-2 gap-10 text-xs text-gray-500">
+            <div className="firmas mt-8 grid grid-cols-2 gap-10 text-xs text-gray-500">
               <div className="border-t border-gray-400 pt-1">Preparado por</div>
               <div className="border-t border-gray-400 pt-1">Fecha y hora</div>
             </div>
