@@ -89,6 +89,8 @@ export default function NotaDeposito() {
         @media print {
           /* Hoja A4 vertical, sola: sin menú lateral, fondo oscuro ni marca de agua. */
           @page { size: A4 portrait; margin: 12mm; }
+          /* Que salga igual que en pantalla: sin esto el navegador borra los colores de las etiquetas Granel / Fracción. */
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           html, body { background: #fff !important; color: #111 !important; }
           body::before, body::after { display: none !important; }
           aside, .fixed, .no-print { display: none !important; }
