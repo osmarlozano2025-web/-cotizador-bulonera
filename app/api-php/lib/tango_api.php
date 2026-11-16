@@ -263,7 +263,7 @@ class TangoApi
  *
  * Igual que en el Excel: el precio de cada renglón ya trae todos los
  * descuentos de la proforma, así que la bonificación va en 0 y el detalle de
- * los descuentos queda en la Leyenda 2 y en las observaciones.
+ * los descuentos queda en las observaciones.
  */
 function pedidoTangoDesdeApp(array $pedido, string $familia, array $ids, ?string $etiquetaFamilia = null): array
 {
@@ -307,8 +307,10 @@ function pedidoTangoDesdeApp(array $pedido, string $familia, array $ids, ?string
         'ID_MONEDA' => $ids['moneda'],
         'COTIZACION' => 1,
         'ID_GVA43_TALONARIO_FACTURA' => $ids['talonarioFactura'] ?? null,
-        'LEYENDA_1' => TANGO_LEYENDA_ORIGEN,
-        'LEYENDA_2' => mb_substr("Proforma $numeroProforma - $descuentos", 0, TANGO_LARGO_LEYENDA),
+        // Leyenda 1 libre. El número de proforma y los descuentos van en las observaciones.
+        'LEYENDA_2' => TANGO_LEYENDA_2,
+        'LEYENDA_3' => TANGO_LEYENDA_3,
+        'LEYENDA_4' => TANGO_LEYENDA_4,
         'PORCENTAJE_DESCUENTO_GENERAL' => 0,
         'IMPORTE_DESCUENTO_GENERAL' => 0,
         'PORCENTAJE_RECARGO_GENERAL' => 0,

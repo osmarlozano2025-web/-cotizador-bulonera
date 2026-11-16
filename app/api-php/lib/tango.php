@@ -31,6 +31,14 @@ const TANGO_DEPOSITO_POR_DEFECTO = '01';
 /** Quién figura como autor del pedido en la Leyenda 1 de Tango. */
 const TANGO_LEYENDA_ORIGEN = 'APP';
 
+/**
+ * Leyendas fijas de los pedidos que van por la API, como las cargan a mano:
+ * la 1 queda libre, la 2 es "NOTA:" y la 3 y la 4 son las condiciones de pago.
+ */
+const TANGO_LEYENDA_2 = 'NOTA:';
+const TANGO_LEYENDA_3 = '1) PAGO CONTADO DTO. 10%+10%';
+const TANGO_LEYENDA_4 = '3) PAGO FUERA DE TERMINO NETO';
+
 /** Las leyendas de Tango se cortan en 60 caracteres. */
 const TANGO_LARGO_LEYENDA = 60;
 
