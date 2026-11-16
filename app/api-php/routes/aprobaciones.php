@@ -1019,6 +1019,7 @@ function rutaAprobacionesEnviarTango(string $id, string $familia): void
     try {
         $api = TangoApi::desdeConfig($pdo);
         $ids = idsPedidoTango($api, $pedido, $familia, idTalonarioPedidosTango($api, $pdo));
+        $ids['modeloAsiento'] = modeloAsientoPedidosTango($api, $pdo);
         $idTango = $api->crear($api->proceso('pedidos'), pedidoTangoDesdeApp($pedido, $familia, $ids, $etiqueta));
     } catch (InvalidArgumentException $e) {
         jsonError($e->getMessage(), 422);

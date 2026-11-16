@@ -325,6 +325,12 @@ function pedidoTangoDesdeApp(array $pedido, string $familia, array $ids, ?string
         if (!empty($ids[$clave])) $cabecera[$campo] = $ids[$clave];
     }
 
+    // Modelo de asiento: sin él no se puede facturar el pedido desde Tango.
+    if (!empty($ids['modeloAsiento'])) {
+        [$campoAsiento, $idAsiento] = $ids['modeloAsiento'];
+        $cabecera[$campoAsiento] = $idAsiento;
+    }
+
     return array_filter($cabecera, fn($v) => $v !== null);
 }
 
@@ -395,6 +401,37 @@ function buscarIdTalonarioPedidosTango(TangoApi $api): int
         if ($id > 0) return $id;
     }
     throw new TangoApiException('No encontré en Tango un pedido con el talonario ' . TANGO_TALONARIO_PEDIDOS . ' para saber su número interno');
+}
+
+/**
+ * El modelo de asiento de los pedidos de facturación, como [campo, id], o null.
+ *
+ * Sin modelo de asiento Tango no deja facturar el pedido. La API no tiene un
+ * proceso para esos modelos, así que se copia el de los pedidos que ya están
+ * cargados con el talonario 157: se busca, en el pedido completo, el primer
+ * campo que tenga "ASIENTO" en el nombre con un id cargado. Si no hay ninguno
+ * se devuelve null y el pedido va como antes (se completa a mano en Tango).
+ * Se busca una sola vez y queda en config (tangoModeloAsiento, un JSON
+ * {"campo":"...","id":N}); también se puede cargar a mano desde ahí.
+ */
+function modeloAsientoPedidosTango(TangoApi $api, PDO $pdo): ?array
+{
+    $guardado = json_decode((string) $pdo->query("SELECT valor FROM config WHERE clave = 'tangoModeloAsiento'")->fetchColumn(), true);
+    if (is_array($guardado) && !empty($guardado['campo']) && !empty($guardado['id'])) {
+        return [(string) $guardado['campo'], (int) $guardado['id']];
+    }
+
+    foreach ($api->listar($api->proceso('pedidos'), 50, 0) as $fila) {
+        if ((string) ($fila['TALONARIO_PEDIDO'] ?? '') !== TANGO_TALONARIO_PEDIDOS || empty($fila['ID_GVA21'])) continue;
+        $completo = $api->porId($api->proceso('pedidos'), (int) $fila['ID_GVA21']) ?? [];
+        foreach ($completo as $campo => $valor) {
+            if (stripos((string) $campo, 'ASIENTO') === false || !is_numeric($valor) || (int) $valor <= 0) continue;
+            $pdo->prepare('INSERT INTO config (clave, valor) VALUES (?, ?) ON DUPLICATE KEY UPDATE valor = VALUES(valor)')
+                ->execute(['tangoModeloAsiento', json_encode(['campo' => $campo, 'id' => (int) $valor])]);
+            return [(string) $campo, (int) $valor];
+        }
+    }
+    return null;
 }
 
 /** Lo mismo, pero se busca una sola vez y queda guardado en config (tangoIdTalonario). */
