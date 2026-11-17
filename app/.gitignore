@@ -22,3 +22,9 @@ server/setup-v*.mjs
 server/aplicar-*.mjs
 server/estado.mjs
 server/fix-*.mjs
+
+# Contadores y registro de seguridad de la API: se generan en el servidor
+api-php/storage/
+api-php/logs/
+!api-php/storage/.htaccess
+!api-php/logs/.htaccess

@@ -39,7 +39,7 @@ export default function Registro() {
     e.preventDefault()
     setError('')
     if (password !== confirmar) { setError('Las contraseñas no coinciden'); return }
-    if (password.length < 6) { setError('La contraseña tiene que tener al menos 6 caracteres'); return }
+    if (password.length < 8) { setError('La contraseña tiene que tener al menos 8 caracteres'); return }
     setCargando(true)
     try {
       if (tipo === 'cliente') {

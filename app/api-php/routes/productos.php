@@ -133,6 +133,8 @@ function rutaProductosInterpretarImagen(): void
     // Cada lectura le cuesta plata a la cuenta de OpenAI: sólo gente conocida,
     // y sólo imágenes de verdad.
     requireAuth();
+    // Cada lectura cuesta plata: 30 por hora y por origen alcanzan para trabajar y frenan el abuso.
+    limitar('imagen:' . ipCliente(), 30, 3600, 'interpretar-imagen');
 
     if (!isset($_FILES['imagen'])) jsonError('No se recibió imagen', 400);
 

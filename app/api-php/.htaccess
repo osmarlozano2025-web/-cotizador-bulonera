@@ -1,4 +1,8 @@
-# Bloquea el acceso web directo a archivos sensibles de esta carpeta
-<FilesMatch "^\.env|\.env\.example$">
+# Desde internet sólo se entra por index.php (el router de la API, al que llegan
+# los pedidos /api/*). Todo lo demás de esta carpeta es código, datos o
+# configuración y no se sirve nunca.
+Options -Indexes
+
+<FilesMatch "^(\.env.*|config\.php|migrate\.php)$|\.(env|sql|md|xlsx|xls|json|txt|log|bak|dist|example|sh)$">
     Require all denied
 </FilesMatch>

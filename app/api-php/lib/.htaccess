@@ -1,0 +1,2 @@
+# Carpeta interna: nadie entra por web, sólo PHP por dentro.
+Require all denied

@@ -778,6 +778,9 @@ function rutaAprobacionesAprobarFamilia(string $id): void
 
 function rutaAprobacionesConfirmarObtener(string $token): void
 {
+    // Link público: sin sesión, así que se frena el probar tokens al azar.
+    limitar('confirmar:' . ipCliente(), 60, 600, 'confirmar');
+    if (!preg_match('/^[a-f0-9]{32}$/', $token)) jsonError('No encontrado', 404);
     $pdo = obtenerPDO();
     $pedido = buscarPorToken($pdo, $token);
     if (!$pedido) jsonError('No encontrado', 404);
@@ -787,6 +790,8 @@ function rutaAprobacionesConfirmarObtener(string $token): void
 
 function rutaAprobacionesConfirmarPost(string $token): void
 {
+    limitar('confirmar:' . ipCliente(), 60, 600, 'confirmar');
+    if (!preg_match('/^[a-f0-9]{32}$/', $token)) jsonError('No encontrado', 404);
     $pdo = obtenerPDO();
     $pedido = buscarPorToken($pdo, $token);
     if (!$pedido) jsonError('No encontrado', 404);

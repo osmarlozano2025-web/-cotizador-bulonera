@@ -35,3 +35,6 @@ app/api-php/plantillas/*.xlsx
 
 # Contexto completo del proyecto: nombres, accesos y datos internos. No va a un repo público.
 docs/CONTEXTO-PROYECTO.md
+
+# Cuentas con usuario y contraseña (aunque sea hash): nunca al repo público.
+app/server/data/personal.json

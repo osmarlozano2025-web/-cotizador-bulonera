@@ -74,8 +74,16 @@ function rutaIntegracionesActualizar(): void
     // Los datos de Tango son varios: dirección y empresa se pueden cambiar de a
     // uno, y la dirección se guarda sin la barra final.
     if (isset($body['tangoUrl'])) $body['tangoUrl'] = rtrim(trim((string) $body['tangoUrl']), '/');
-    if (isset($body['tangoUrl']) && $body['tangoUrl'] !== '' && !preg_match('#^https?://#i', $body['tangoUrl'])) {
-        jsonError('La dirección de Tango tiene que empezar con http:// o https://', 422);
+    if (isset($body['tangoUrl']) && $body['tangoUrl'] !== '') {
+        $partes = parse_url($body['tangoUrl']);
+        $host = strtolower($partes['host'] ?? '');
+        $esLocal = in_array($host, ['localhost', '127.0.0.1'], true);
+        // La clave de Tango viaja en cada llamada: sin cifrar sólo se admite en la propia máquina.
+        if (!$host || !in_array($partes['scheme'] ?? '', ['http', 'https'], true)
+            || (($partes['scheme'] ?? '') === 'http' && !$esLocal)
+            || isset($partes['user']) || isset($partes['pass'])) {
+            jsonError('La dirección de Tango tiene que ser https:// (y no llevar usuario ni clave en la dirección)', 422);
+        }
     }
     if (isset($body['tangoEmpresa']) && !ctype_digit((string) $body['tangoEmpresa'])) {
         jsonError('La empresa de Tango es un número', 422);

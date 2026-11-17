@@ -12,47 +12,66 @@ function base64UrlDecode(string $data): string
     return base64_decode(strtr($data, '-_', '+/'));
 }
 
+/** Cuánto dura una sesión. Más corto = menos tiempo útil para un token robado. */
+const SESION_SEGUNDOS = 7 * 24 * 60 * 60;
+
+/**
+ * El secreto con el que se firman las sesiones. Si falta, se corta: firmar con
+ * una clave vacía deja que cualquiera fabrique un token de administrador.
+ */
+function secretoJwt(): string
+{
+    $secreto = (require __DIR__ . '/../config.php')['jwt_secret'] ?? '';
+    if (strlen($secreto) < 32) {
+        error_log('SEGURIDAD: JWT_SECRET ausente o menor a 32 caracteres en el .env del servidor');
+        if ($secreto === '') jsonError('El servidor no está configurado correctamente', 500);
+    }
+    return $secreto;
+}
+
 function firmarToken(array $usuario): string
 {
-    $cfg = require __DIR__ . '/../config.php';
     $header = base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
     $payload = base64UrlEncode(json_encode([
         'id' => $usuario['id'],
         'rol' => $usuario['rol'],
         'iat' => time(),
-        'exp' => time() + 30 * 24 * 60 * 60, // 30 días
+        'exp' => time() + SESION_SEGUNDOS,
     ]));
-    $firma = base64UrlEncode(hash_hmac('sha256', "$header.$payload", $cfg['jwt_secret'], true));
+    $firma = base64UrlEncode(hash_hmac('sha256', "$header.$payload", secretoJwt(), true));
     return "$header.$payload.$firma";
 }
 
 /** Token de un cliente logueado: no tiene rol/permisos en la base, se fijan siempre igual. */
 function firmarTokenCliente(array $cliente): string
 {
-    $cfg = require __DIR__ . '/../config.php';
     $header = base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
     $payload = base64UrlEncode(json_encode([
         'tipo' => 'cliente',
         'clienteId' => $cliente['id'],
         'iat' => time(),
-        'exp' => time() + 30 * 24 * 60 * 60,
+        'exp' => time() + SESION_SEGUNDOS,
     ]));
-    $firma = base64UrlEncode(hash_hmac('sha256', "$header.$payload", $cfg['jwt_secret'], true));
+    $firma = base64UrlEncode(hash_hmac('sha256', "$header.$payload", secretoJwt(), true));
     return "$header.$payload.$firma";
 }
 
 function verificarToken(string $token): ?array
 {
-    $cfg = require __DIR__ . '/../config.php';
     $partes = explode('.', $token);
     if (count($partes) !== 3) return null;
     [$header, $payload, $firma] = $partes;
 
-    $esperada = base64UrlEncode(hash_hmac('sha256', "$header.$payload", $cfg['jwt_secret'], true));
+    // Sólo HS256: un token que diga otro algoritmo (por ejemplo "none") se rechaza.
+    $cabecera = json_decode(base64UrlDecode($header), true);
+    if (!is_array($cabecera) || ($cabecera['alg'] ?? null) !== 'HS256') return null;
+
+    $esperada = base64UrlEncode(hash_hmac('sha256', "$header.$payload", secretoJwt(), true));
     if (!hash_equals($esperada, $firma)) return null;
 
     $datos = json_decode(base64UrlDecode($payload), true);
-    if (!$datos || (isset($datos['exp']) && $datos['exp'] < time())) return null;
+    // Sin vencimiento el token valdría para siempre: tiene que traer `exp` y no estar vencido.
+    if (!is_array($datos) || !isset($datos['exp']) || $datos['exp'] < time()) return null;
     return $datos;
 }
 

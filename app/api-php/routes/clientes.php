@@ -57,11 +57,36 @@ function rutaClientesObtener(string $id): void
     jsonSalida(castCliente($c));
 }
 
+/**
+ * Valida en el servidor lo que viene de la ficha de un cliente. El formulario
+ * del navegador ya lo mira, pero eso se saltea con una llamada directa.
+ * Sólo mira los campos que llegaron: en una edición parcial no exige el resto.
+ */
+function validarFichaCliente(array $body): void
+{
+    foreach (['nombre', 'razonSocial', 'localidad', 'provincia', 'transporte'] as $campo) {
+        if (isset($body[$campo]) && (!is_string($body[$campo]) || mb_strlen($body[$campo]) > 150)) {
+            jsonError("El campo $campo no es válido (texto de hasta 150 caracteres)", 422);
+        }
+    }
+    if (isset($body['telefono']) && (!is_string($body['telefono']) || mb_strlen($body['telefono']) > 60)) {
+        jsonError('El teléfono no es válido', 422);
+    }
+    if (!empty($body['cuit']) && (!is_string($body['cuit']) || !preg_match('/^[0-9. -]{1,20}$/', $body['cuit']))) {
+        jsonError('El CUIT sólo puede tener números, puntos y guiones', 422);
+    }
+    if (!empty($body['email']) && (!is_string($body['email']) || mb_strlen($body['email']) > 150 || !filter_var($body['email'], FILTER_VALIDATE_EMAIL))) {
+        jsonError('El email no es válido', 422);
+    }
+}
+
 function rutaClientesCrear(): void
 {
     $auth = requireAuth();
     if ($auth['rol'] === 'Cliente') jsonError('No tenés acceso a esto', 403);
     $body = cuerpoJson();
+    validarFichaCliente($body);
+    if (trim((string) ($body['nombre'] ?? '')) === '') jsonError('El cliente necesita un nombre', 422);
     $pdo = obtenerPDO();
 
     $tipos = $pdo->query('SELECT * FROM tipos_descuento')->fetchAll();
@@ -105,6 +130,7 @@ function rutaClientesActualizar(string $id): void
     if (!$actual) jsonError('No encontrado', 404);
 
     $body = cuerpoJson();
+    validarFichaCliente($body);
     $tipo = null;
     if (isset($body['tipoDescuento'])) {
         $tstmt = $pdo->prepare('SELECT * FROM tipos_descuento WHERE codigo = ?');

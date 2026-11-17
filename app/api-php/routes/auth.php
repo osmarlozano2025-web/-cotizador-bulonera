@@ -3,6 +3,41 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/response.php';
 require_once __DIR__ . '/../lib/mailer.php';
+require_once __DIR__ . '/../lib/seguridad.php';
+
+/** Hash de una clave que nadie conoce: se verifica contra él cuando la cuenta no existe, para que tardar lo mismo no delate qué usuarios hay. */
+const HASH_SENUELO = '$2y$10$tWUFaIdq2swU9kDEhgdDQuXPd3cO07KRMBoekxqxw3ejw9oR3RUoO';
+
+const LOGIN_MAX_POR_USUARIO = 8; // fallos seguidos contra una misma cuenta
+const LOGIN_MAX_POR_IP = 30;     // fallos seguidos desde un mismo origen
+const LOGIN_VENTANA = 900;       // 15 minutos
+
+/** Corta antes de mirar la contraseña si esa cuenta o ese origen ya agotaron sus intentos. */
+function exigirLoginPermitido(string $identificador): void
+{
+    $claveUsuario = 'login:u:' . mb_strtolower($identificador);
+    $claveIp = 'login:ip:' . ipCliente();
+    if (!intentosRestantes($claveUsuario, LOGIN_MAX_POR_USUARIO, LOGIN_VENTANA)
+        || !intentosRestantes($claveIp, LOGIN_MAX_POR_IP, LOGIN_VENTANA)) {
+        registrarSeguridad('login_bloqueado', ['usuario' => mb_substr($identificador, 0, 80)]);
+        header('Retry-After: ' . LOGIN_VENTANA);
+        jsonError('Demasiados intentos fallidos. Esperá 15 minutos y volvé a probar.', 429);
+    }
+}
+
+function anotarLoginFallido(string $identificador, string $tipo): void
+{
+    consumirIntento('login:u:' . mb_strtolower($identificador), LOGIN_MAX_POR_USUARIO, LOGIN_VENTANA);
+    consumirIntento('login:ip:' . ipCliente(), LOGIN_MAX_POR_IP, LOGIN_VENTANA);
+    registrarSeguridad('login_fallido', ['usuario' => mb_substr($identificador, 0, 80), 'tipo' => $tipo]);
+}
+
+/** Verifica la contraseña tardando lo mismo exista o no la cuenta. */
+function claveCorrecta(string $password, ?string $hash): bool
+{
+    $ok = password_verify($password, $hash ?: HASH_SENUELO);
+    return $ok && $hash !== null && $hash !== '';
+}
 
 function sinPasswordPersonal(array $u): array
 {
@@ -42,17 +77,21 @@ function linkVerificacion(string $tipo, string $token): string
 function rutaAuthLogin(): void
 {
     $body = cuerpoJson();
-    $identificador = trim($body['usuario'] ?? $body['email'] ?? '');
-    $password = $body['password'] ?? '';
+    $identificador = mb_substr(trim((string) ($body['usuario'] ?? $body['email'] ?? '')), 0, 150);
+    $password = is_string($body['password'] ?? null) ? $body['password'] : '';
+
+    exigirLoginPermitido($identificador);
 
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM personal WHERE (usuario = ? OR email = ?) AND activo = 1');
     $stmt->execute([$identificador, $identificador]);
     $persona = $stmt->fetch();
 
-    if (!$persona || !password_verify($password, $persona['passwordHash'])) {
+    if (!claveCorrecta($password, $persona['passwordHash'] ?? null)) {
+        anotarLoginFallido($identificador, 'personal');
         jsonError('Usuario o contraseña incorrectos', 401);
     }
+    olvidarIntentos('login:u:' . mb_strtolower($identificador));
     // La cuenta admin sembrada a mano no tiene email cargado: no le exigimos verificación.
     if ($persona['email'] && !(int) $persona['emailVerificado']) {
         jsonError('Todavía no confirmaste tu email. Revisá tu correo.', 403);
@@ -89,13 +128,16 @@ function rutaAuthMe(): void
 function rutaAuthRegistrarPersonal(): void
 {
     $body = cuerpoJson();
-    $nombre = trim($body['nombre'] ?? '');
-    $email = trim($body['email'] ?? '');
-    $password = $body['password'] ?? '';
+    // Cinco altas por hora y por origen: alcanza para una persona y frena el alta masiva.
+    limitar('registro:' . ipCliente(), 5, 3600, 'registro');
+
+    $nombre = mb_substr(trim((string) ($body['nombre'] ?? '')), 0, 100);
+    $email = mb_substr(trim((string) ($body['email'] ?? '')), 0, 150);
+    $password = is_string($body['password'] ?? null) ? $body['password'] : '';
 
     if (!$nombre || !$email || !$password) jsonError('Faltan datos obligatorios', 400);
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) jsonError('El email no es válido', 400);
-    if (strlen($password) < 6) jsonError('La contraseña tiene que tener al menos 6 caracteres', 400);
+    if ($motivo = motivoPasswordDebil($password, $email, $nombre)) jsonError($motivo, 400);
 
     $pdo = obtenerPDO();
     $existe = $pdo->prepare('SELECT id FROM personal WHERE email = ?');
@@ -116,10 +158,11 @@ function rutaAuthRegistrarPersonal(): void
 
     $link = linkVerificacion('personal', $token);
     enviarMail($email, 'Confirmá tu cuenta — Córdoba Bulones', "
-        <p>Hola $nombre,</p>
+        <p>Hola " . h($nombre) . ",</p>
         <p>Creaste una cuenta de personal en Córdoba Bulones. Confirmá tu email para poder ingresar:</p>
         <p><a href=\"$link\">Confirmar mi cuenta</a></p>
         <p>Un administrador te va a asignar los permisos una vez que confirmes.</p>
+        <p style=\"color:#666;font-size:12px\">El link vence en 24 horas. Si no creaste esta cuenta, ignorá este mail.</p>
     ");
 
     jsonSalida(['ok' => true, 'mensaje' => 'Te mandamos un mail para confirmar tu cuenta.']);
@@ -127,6 +170,8 @@ function rutaAuthRegistrarPersonal(): void
 
 function rutaAuthVerificarPersonal(string $token): void
 {
+    limitar('verificar:' . ipCliente(), 30, 600, 'verificar');
+    if (!preg_match('/^[a-f0-9]{64}$/', $token)) jsonError('El link no es válido', 400);
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT id, emailVerificado, tokenExpira FROM personal WHERE tokenVerificacion = ?');
     $stmt->execute([$token]);
@@ -149,11 +194,13 @@ function rutaAuthVerificarPersonal(string $token): void
 function rutaAuthRegistrarCliente(): void
 {
     $body = cuerpoJson();
-    $identificador = trim($body['identificador'] ?? '');
-    $password = $body['password'] ?? '';
+    limitar('registro:' . ipCliente(), 5, 3600, 'registro');
+
+    $identificador = mb_substr(trim((string) ($body['identificador'] ?? '')), 0, 150);
+    $password = is_string($body['password'] ?? null) ? $body['password'] : '';
 
     if (!$identificador || !$password) jsonError('Faltan datos obligatorios', 400);
-    if (strlen($password) < 6) jsonError('La contraseña tiene que tener al menos 6 caracteres', 400);
+    if ($motivo = motivoPasswordDebil($password, $identificador)) jsonError($motivo, 400);
 
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM clientes WHERE email = ? OR cuit = ?');
@@ -172,9 +219,10 @@ function rutaAuthRegistrarCliente(): void
 
     $link = linkVerificacion('cliente', $token);
     enviarMail($cliente['email'], 'Confirmá tu cuenta — Córdoba Bulones', "
-        <p>Hola {$cliente['nombre']},</p>
+        <p>Hola " . h($cliente['nombre']) . ",</p>
         <p>Confirmá tu email para poder ingresar y hacer pedidos:</p>
         <p><a href=\"$link\">Confirmar mi cuenta</a></p>
+        <p style=\"color:#666;font-size:12px\">El link vence en 24 horas. Si vos no pediste esta cuenta, no hagas clic: ignorá este mail.</p>
     ");
 
     jsonSalida(['ok' => true, 'mensaje' => 'Te mandamos un mail para confirmar tu cuenta.']);
@@ -182,6 +230,8 @@ function rutaAuthRegistrarCliente(): void
 
 function rutaAuthVerificarCliente(string $token): void
 {
+    limitar('verificar:' . ipCliente(), 30, 600, 'verificar');
+    if (!preg_match('/^[a-f0-9]{64}$/', $token)) jsonError('El link no es válido', 400);
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT id, emailVerificado, tokenExpira FROM clientes WHERE tokenVerificacion = ?');
     $stmt->execute([$token]);
@@ -200,17 +250,21 @@ function rutaAuthVerificarCliente(string $token): void
 function rutaAuthLoginCliente(): void
 {
     $body = cuerpoJson();
-    $identificador = trim($body['identificador'] ?? '');
-    $password = $body['password'] ?? '';
+    $identificador = mb_substr(trim((string) ($body['identificador'] ?? '')), 0, 150);
+    $password = is_string($body['password'] ?? null) ? $body['password'] : '';
+
+    exigirLoginPermitido($identificador);
 
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM clientes WHERE (email = ? OR cuit = ?) AND passwordHash IS NOT NULL');
     $stmt->execute([$identificador, $identificador]);
     $cliente = $stmt->fetch();
 
-    if (!$cliente || !password_verify($password, $cliente['passwordHash'])) {
+    if (!claveCorrecta($password, $cliente['passwordHash'] ?? null)) {
+        anotarLoginFallido($identificador, 'cliente');
         jsonError('Usuario o contraseña incorrectos', 401);
     }
+    olvidarIntentos('login:u:' . mb_strtolower($identificador));
     if (!(int) $cliente['emailVerificado']) {
         jsonError('Todavía no confirmaste tu email. Revisá tu correo.', 403);
     }

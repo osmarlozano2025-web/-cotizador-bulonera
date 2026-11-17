@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/lib/response.php';
+require_once __DIR__ . '/lib/seguridad.php';
+require_once __DIR__ . '/routes/seguridad.php';
 require_once __DIR__ . '/routes/auth.php';
 require_once __DIR__ . '/routes/personal.php';
 require_once __DIR__ . '/routes/clientes.php';
@@ -28,6 +30,9 @@ set_exception_handler(function ($e) {
     ));
     jsonError("Hubo un problema y no se pudo completar. Referencia: $referencia", 500);
 });
+
+// Cabeceras de seguridad, HTTPS, origen, tamaño y límite de peticiones.
+iniciarSeguridad();
 
 $metodo = $_SERVER['REQUEST_METHOD'];
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -79,6 +84,8 @@ $rutas = [
     ['PUT', '#^/integraciones$#', fn() => rutaIntegracionesActualizar()],
     ['POST', '#^/integraciones/tango/probar$#', fn() => rutaIntegracionesProbarTango()],
     ['GET', '#^/integraciones/tango/explorar$#', fn() => rutaIntegracionesExplorarTango()],
+
+    ['GET', '#^/seguridad/eventos$#', fn() => rutaSeguridadEventos()],
 
     ['GET', '#^/tango/clientes$#', fn() => rutaTangoClientes()],
     ['GET', '#^/tango/articulos$#', fn() => rutaTangoArticulos()],

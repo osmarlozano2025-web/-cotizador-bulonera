@@ -9,6 +9,7 @@
     "dev:server-legacy": "cd server && npm run dev",
     "migrate": "node server/dev-php.mjs api-php/migrate.php",
     "test:precios": "node server/dev-php.mjs api-php/tests/precios-test.php",
+    "test:seguridad": "node server/dev-php.mjs api-php/tests/seguridad-test.php",
     "build": "cd client && npm install && npm run build",
     "start": "NODE_ENV=production node server/index.js",
     "install:all": "cd server && npm install && cd ../client && npm install",
