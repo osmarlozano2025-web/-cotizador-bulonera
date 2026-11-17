@@ -13,7 +13,7 @@ Lo único que no se copió es `node_modules` → correr `npm install` (ver `SETU
 |---|---|
 | `app/api-php/` | Backend PHP (+ `.env`) |
 | `app/client/` | Frontend React + Vite |
-| `app/server/` | Deploy a Hostinger, importadores (+ `.env`, `data/`) |
+| `app/server/` | Scripts de deploy y de desarrollo (el servidor Node viejo se eliminó) |
 | `app/cotizadores/` | Planillas Excel originales |
 | `docs/` | Versiones, requisitos, Tango, respaldos-db, documentos-fuera-del-repo |
 | `docs/tango/pruebas/` | Planillas de prueba Tango (venían de `Escritorio/Tango-prueba`) |
