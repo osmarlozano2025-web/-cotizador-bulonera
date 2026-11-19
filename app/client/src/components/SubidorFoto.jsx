@@ -20,6 +20,27 @@ function productoParaPedido(opcion, cantidad) {
   }
 }
 
+const pesos = n => '$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/**
+ * Los productos que vienen de Tango se guardan en la base de la app (con su
+ * precio de lista) antes de entrar al pedido: así el pedido ya los tiene
+ * completos y no hay que cargar nada a mano. Devuelve código de Tango -> producto.
+ */
+async function guardarDeTango(codigos) {
+  const token = localStorage.getItem('cb_token')
+  const res = await fetch('/api/productos/guardar-de-tango', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ codigos }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || `No se pudo guardar desde Tango (${res.status})`)
+  }
+  return res.json()
+}
+
 function Etiqueta({ children, clase }) {
   return <span className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${clase}`}>{children}</span>
 }
@@ -34,6 +55,7 @@ export default function SubidorFoto({ onAgregar }) {
   const [elegida, setElegida] = useState({})     // renglón -> índice de la opción elegida
   const [cantidades, setCantidades] = useState({}) // renglón -> cantidad
   const [agregados, setAgregados] = useState(new Set())
+  const [guardando, setGuardando] = useState(false)
   const inputRef = useRef(null)
 
   const elegirArchivo = (file) => {
@@ -91,16 +113,42 @@ export default function SubidorFoto({ onAgregar }) {
     }
   }
 
-  const agregarRenglon = (i) => {
-    const opcion = renglones[i]?.sugerencias?.[elegida[i]]
-    if (!opcion) return
-    onAgregar(productoParaPedido(opcion, Number(cantidades[i]) || 1))
-    setAgregados(prev => new Set(prev).add(i))
+  // Agrega al pedido los renglones indicados. Los que vienen de Tango se
+  // guardan primero en la base, todos juntos en una sola llamada.
+  const agregarRenglones = async (indices) => {
+    setError('')
+    const elegidas = indices
+      .map(i => ({ i, opcion: renglones[i]?.sugerencias?.[elegida[i]] }))
+      .filter(x => x.opcion)
+    if (!elegidas.length) return
+
+    let guardados = {}
+    const deTango = [...new Set(elegidas.filter(x => x.opcion.origen === 'tango').map(x => x.opcion.codigo))]
+    if (deTango.length) {
+      setGuardando(true)
+      try {
+        guardados = await guardarDeTango(deTango)
+      } catch (e) {
+        setError(e.message)
+        setGuardando(false)
+        return
+      }
+      setGuardando(false)
+    }
+
+    const hechos = []
+    for (const { i, opcion } of elegidas) {
+      const producto = opcion.origen === 'tango' ? guardados[opcion.codigo] : opcion
+      if (!producto) { setError(`No se pudo guardar ${opcion.codigo} desde Tango.`); continue }
+      onAgregar(productoParaPedido(producto, Number(cantidades[i]) || 1))
+      hechos.push(i)
+    }
+    setAgregados(prev => new Set([...prev, ...hechos]))
   }
 
+  const agregarRenglon = (i) => agregarRenglones([i])
   const listos = renglones.map((_, i) => i).filter(i => elegida[i] !== undefined && !agregados.has(i))
-  const agregarListos = () => listos.forEach(agregarRenglon)
-
+  const agregarListos = () => agregarRenglones(listos)
   const sinOpciones = renglones.filter(it => !it.sugerencias?.length).length
 
   return (
@@ -174,10 +222,10 @@ export default function SubidorFoto({ onAgregar }) {
                 </p>
                 <button
                   onClick={agregarListos}
-                  disabled={listos.length === 0}
+                  disabled={listos.length === 0 || guardando}
                   className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-semibold px-3 py-1.5 rounded-lg transition"
                 >
-                  Agregar los {listos.length} listos
+                  {guardando ? 'Guardando…' : `Agregar los ${listos.length} listos`}
                 </button>
               </div>
 
@@ -240,6 +288,7 @@ export default function SubidorFoto({ onAgregar }) {
                                 <span className="codigo shrink-0">{s.codigo}</span>
                                 <span className="truncate">{s.descripcion}{s.medida ? ` · ${s.medida}` : ''}</span>
                                 <span className="ml-auto flex items-center gap-1 shrink-0">
+                                  {Number(s.precioLista) > 0 && <span className="text-slate-300 font-medium">{pesos(s.precioLista)}</span>}
                                   {s.origen === 'tango' && <Etiqueta clase="bg-violet-500/20 text-violet-300">Tango</Etiqueta>}
                                   {s.medidaAproximada && <Etiqueta clase="bg-amber-500/20 text-amber-300">medida aprox.</Etiqueta>}
                                   {!s.medidaCoincide && <Etiqueta clase="bg-amber-500/20 text-amber-300">otra medida</Etiqueta>}
@@ -254,14 +303,14 @@ export default function SubidorFoto({ onAgregar }) {
                         <div className="mt-2 flex items-center gap-2">
                           <button
                             onClick={() => agregarRenglon(i)}
-                            disabled={ya || elegida[i] === undefined}
+                            disabled={ya || guardando || elegida[i] === undefined}
                             className="text-xs font-semibold bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white rounded px-3 py-1 transition"
                           >
                             {ya ? '✓ Agregado' : elegida[i] === undefined ? 'Elegí una opción' : '+ Agregar al pedido'}
                           </button>
                           {elegida[i] !== undefined && item.sugerencias[elegida[i]]?.origen === 'tango'
                             && !Number(item.sugerencias[elegida[i]]?.precioLista) && !ya && (
-                            <span className="text-[11px] text-amber-300">Viene de Tango y todavía no tiene precio en la app.</span>
+                            <span className="text-[11px] text-amber-300">Tango no tiene precio para este artículo en la lista de venta.</span>
                           )}
                         </div>
                       )}

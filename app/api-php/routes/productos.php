@@ -175,7 +175,9 @@ function opcionesDeTangoEnLote(PDO $pdo, array $pendientes, array &$tango): arra
                 $textos = array_slice(array_keys($faltan), 0, $disponibles);
                 $tango['consultas'] += count($textos);
 
-                foreach (buscarArticulosTangoEnParalelo($tango['api'], $textos, TANGO_FOTO_ARTICULOS) as $t => $r) {
+                $respuestas = buscarArticulosTangoEnParalelo($tango['api'], $textos, TANGO_FOTO_ARTICULOS);
+                $pdo = pdoVivo($pdo); // la espera por Tango pudo cerrar la conexión
+                foreach ($respuestas as $t => $r) {
                     if ($r instanceof TangoApiException) {
                         // Tango contestó pero la respuesta es enorme y llegó cortada o no llegó a tiempo: se achica la consulta.
                         if (!preg_match('/timed out.*?\b[1-9]\d* out of|respuesta ilegible/', $r->getMessage())) throw $r;
@@ -266,7 +268,8 @@ function rutaProductosInterpretarImagen(): void
         jsonError('No se pudo leer la foto: ' . mb_substr($e->getMessage(), 0, 200), 502);
     }
 
-    jsonSalida(resolverRenglones(obtenerPDO(), $renglones));
+    // La lectura con la IA tardó: MySQL pudo haber cerrado la conexión de antes.
+    jsonSalida(resolverRenglones(obtenerPDO(true), $renglones));
 }
 
 /** Busca cada renglón leído. Separado de la lectura para poder probarlo sin la IA. */
@@ -297,11 +300,22 @@ function resolverRenglones(PDO $pdo, array $renglones): array
     // 2) Lo pendiente, a Tango de una sola vez.
     $deTango = opcionesDeTangoEnLote($pdo, $pendientes, $tango);
 
+    $pdo = pdoVivo($pdo);
+
+    // 2b) Las opciones que vienen de Tango salen con el precio de la lista, así se ven y se cotizan.
+    $tango['precios'] = preciosDeLasOpcionesDeTango($pdo, $tango, $deTango);
+
     // 3) Se arma la respuesta.
     $items = [];
     foreach ($renglones as $i => $r) {
         $opciones = $opcionesPorRenglon[$i];
         if (!empty($deTango[$i])) {
+            foreach ($deTango[$i] as &$o) {
+                $o['precioLista'] = $tango['precios'][$o['codigo']] ?? $o['precioLista'] ?? null;
+                // Sin precio en la lista de venta casi siempre es un artículo dado de baja: pasa atrás de los que sí tienen.
+                if (!$o['precioLista'] && $tango['precios']) $o['puntaje'] = max(0, $o['puntaje'] - 0.08);
+            }
+            unset($o);
             $opciones = array_merge($opciones, $deTango[$i]);
             // Lo que coincide en medida primero; dentro de eso, lo de mejor puntaje.
             usort($opciones, fn($a, $b) =>
@@ -333,4 +347,67 @@ function resolverRenglones(PDO $pdo, array $renglones): array
             'mensaje' => $tango['mensaje'],
         ],
     ];
+}
+
+/** Precios de lista de todas las opciones de Tango de la foto, en una sola tanda de consultas. */
+function preciosDeLasOpcionesDeTango(PDO $pdo, array &$tango, array $deTango): array
+{
+    if (!$deTango || !$tango['disponible'] || $tango['api'] === null) return [];
+    require_once __DIR__ . '/../lib/tango_sync.php';
+
+    $codigos = [];
+    foreach ($deTango as $opciones) foreach ($opciones as $o) $codigos[] = $o['codigo'];
+    try {
+        $precios = preciosDeArticulosTango($tango['api'], $codigos, listaDePreciosTango($pdo));
+        return $precios;
+    } catch (Throwable $e) {
+        error_log('foto→precios: ' . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * POST /productos/guardar-de-tango {"codigos": ["52706050", ...]} — guarda en la
+ * base de la app los artículos de Tango que se eligieron (nombre, medida,
+ * familia, IVA y precio de la lista) y devuelve cada uno tal como quedó, para
+ * agregarlo al pedido con todos sus datos. Los que ya estaban sólo
+ * actualizan precio e IVA: lo curado de la app no se pisa.
+ */
+function rutaProductosGuardarDeTango(): void
+{
+    $auth = requireAuth();
+    if (($auth['rol'] ?? null) === 'Cliente') jsonError('No tenés acceso a esto', 403);
+    require_once __DIR__ . '/../lib/tango_sync.php';
+    @set_time_limit(90);
+
+    $codigos = array_values(array_unique(array_filter(
+        array_map(fn($c) => trim((string) $c), (array) (cuerpoJson()['codigos'] ?? [])),
+        fn($c) => $c !== '' && preg_match('/^[A-Za-z0-9._-]{1,30}$/', $c)
+    )));
+    if (!$codigos) jsonError('Faltan los códigos de Tango', 422);
+    if (count($codigos) > 80) jsonError('Demasiados artículos de una vez', 422);
+
+    $pdo = obtenerPDO();
+    try {
+        $api = TangoApi::desdeConfig($pdo, 30);
+        $filtro = 'AXV_ARTICULO.COD_STA11 IN (' . implode(',', array_map(fn($c) => TangoApi::literalSql($c), $codigos)) . ')';
+        $articulos = array_map('articuloDesdeTango', $api->filtrar($api->proceso('articulos'), $filtro));
+        $precios = preciosDeArticulosTango($api, array_column($articulos, 'codigo'), listaDePreciosTango($pdo));
+    } catch (TangoApiException $e) {
+        jsonError('No se pudo leer de Tango: ' . $e->getMessage(), 502);
+    }
+
+    $extras = [];
+    foreach ($precios as $c => $p) $extras[$c] = ['precioLista' => $p];
+    guardarArticulosTango($pdo, $articulos, configJson($pdo, 'tangoFamilias'), $extras, false, true);
+
+    // Cada uno, como quedó en la base.
+    $salida = [];
+    foreach ($articulos as $a) {
+        $cands = codigosAppDeArticulo($a['codigo']);
+        $stmt = $pdo->prepare('SELECT * FROM productos WHERE codigo IN (' . implode(',', array_fill(0, count($cands), '?')) . ') LIMIT 1');
+        $stmt->execute($cands);
+        if ($fila = $stmt->fetch()) $salida[$a['codigo']] = castProducto($fila) + ['origen' => 'app'];
+    }
+    jsonSalida($salida);
 }

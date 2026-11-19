@@ -3,6 +3,7 @@ require_once __DIR__ . '/../lib/db.php';
 require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/response.php';
 require_once __DIR__ . '/../lib/tango_datos.php';
+require_once __DIR__ . '/../lib/tango_sync.php';
 
 /**
  * Consultas en vivo a Tango. Todas leen, ninguna escribe en Tango ni en la
@@ -79,4 +80,54 @@ function rutaIntegracionesExplorarTango(): void
         jsonError($e->getMessage() . ($e->detalle ? ' — ' . $e->detalle : ''), 502);
     }
     jsonSalida(['proceso' => $proceso, 'campos' => $filas ? array_keys($filas[0]) : [], 'filas' => $filas]);
+}
+
+/** GET /tango/sincronizacion — cómo va la copia del catálogo de Tango y cuántos productos hay. */
+function rutaTangoSincronizacionEstado(): void
+{
+    $auth = requireAuth();
+    requireRole($auth, ROLES_ADMIN);
+    $pdo = obtenerPDO();
+    jsonSalida(estadoSincronizacion($pdo) + ['productosEnLaApp' => (int) $pdo->query('SELECT COUNT(*) FROM productos')->fetchColumn()]);
+}
+
+/**
+ * POST /tango/sincronizar — copia artículos de Tango a la base de la app, por
+ * tandas. Cada llamada trabaja hasta unos 45 segundos y devuelve el avance;
+ * la pantalla la repite hasta que `terminado` sea true. Con {"reiniciar": true}
+ * arranca de nuevo desde el principio.
+ */
+function rutaTangoSincronizar(): void
+{
+    $auth = requireAuth();
+    requireRole($auth, ROLES_ADMIN);
+    @set_time_limit(120);
+
+    $body = cuerpoJson();
+    $pdo = obtenerPDO();
+    $estado = estadoSincronizacion($pdo);
+
+    if (!empty($body['reiniciar']) || empty($estado) || !empty($estado['terminado'])) {
+        $estado = ['inicio' => date('c'), 'pagina' => 0, 'leidos' => 0, 'nuevos' => 0, 'actualizados' => 0, 'terminado' => false];
+    }
+
+    $api = TangoApi::desdeConfig($pdo, 60);
+    $limite = microtime(true) + 45;
+    try {
+        do {
+            try { $pdo->query('SELECT 1'); } catch (Throwable $e) { $pdo = obtenerPDO(true); }
+            $r = sincronizarPaginaArticulos($pdo, $api, (int) $estado['pagina'], 500);
+            $estado['leidos'] += $r['leidos'];
+            $estado['nuevos'] += $r['nuevos'];
+            $estado['actualizados'] += $r['actualizados'];
+            $estado['pagina']++;
+            if ($r['fin']) { $estado['terminado'] = true; $estado['fin'] = date('c'); }
+            guardarEstadoSincronizacion($pdo, $estado);
+        } while (!$estado['terminado'] && microtime(true) < $limite);
+    } catch (TangoApiException $e) {
+        guardarEstadoSincronizacion($pdo, $estado);
+        jsonError('Tango no respondió: ' . $e->getMessage() . ($e->detalle ? ' — ' . $e->detalle : '') . ' (se puede seguir desde donde quedó)', 502);
+    }
+
+    jsonSalida($estado + ['productosEnLaApp' => (int) $pdo->query('SELECT COUNT(*) FROM productos')->fetchColumn()]);
 }

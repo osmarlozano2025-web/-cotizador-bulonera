@@ -147,6 +147,68 @@ function ConexionTango({ datos, onCambio }) {
   )
 }
 
+/**
+ * Copia el catálogo de Tango (artículos nuevos, precios de la lista de venta) a la
+ * base de la app. El servidor trabaja por tandas de unos 45 segundos y esta
+ * tarjeta lo repite hasta que termina.
+ */
+function SincronizarCatalogo() {
+  const [estado, setEstado] = useState(null)
+  const [trabajando, setTrabajando] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => { req('/api/tango/sincronizacion').then(setEstado).catch(() => {}) }, [])
+
+  const sincronizar = async () => {
+    setTrabajando(true)
+    setError('')
+    try {
+      let e = await req('/api/tango/sincronizar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reiniciar: true }) })
+      setEstado(e)
+      while (!e.terminado) {
+        e = await req('/api/tango/sincronizar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        setEstado(e)
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setTrabajando(false)
+    }
+  }
+
+  const fecha = estado?.fin ? new Date(estado.fin).toLocaleString('es-AR') : null
+
+  return (
+    <div className="bg-white/5 rounded-xl shadow-sm border p-5 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-100 text-sm">Catálogo de Tango</p>
+          <p className="text-xs text-slate-400">
+            Trae a la app los artículos nuevos de Tango con su precio de la lista de venta, así las búsquedas y las fotos
+            responden al instante. Lo que la app ya tenía no se pisa (solo se actualizan precio e IVA).
+          </p>
+        </div>
+        <button
+          onClick={sincronizar}
+          disabled={trabajando}
+          className="shrink-0 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
+        >
+          {trabajando ? 'Sincronizando…' : 'Sincronizar ahora'}
+        </button>
+      </div>
+      {estado && (
+        <p className="text-xs text-slate-300">
+          {trabajando && <span className="animate-pulse">Leyendo de Tango… </span>}
+          {estado.leidos > 0 && <>Leídos {estado.leidos} · nuevos {estado.nuevos} · actualizados {estado.actualizados} · </>}
+          {estado.productosEnLaApp != null && <>{estado.productosEnLaApp} productos en la app</>}
+          {fecha && <> · última vez: {fecha}</>}
+        </p>
+      )}
+      {error && <p className="text-xs text-rose-400">{error}</p>}
+    </div>
+  )
+}
+
 export default function Integraciones() {
   const [datos, setDatos] = useState(null)
   const [error, setError] = useState('')
@@ -181,6 +243,7 @@ export default function Integraciones() {
             onGuardar={guardarOpenAI}
           />
           <ConexionTango datos={datos} onCambio={cargar} />
+          {datos.tangoConfigurada && <SincronizarCatalogo />}
           <CampoClave
             titulo="Tango — token de la API"
             descripcion="El token de desarrollador de Tango Delta (header ApiAuthorization)."

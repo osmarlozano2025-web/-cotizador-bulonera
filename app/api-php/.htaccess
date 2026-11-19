@@ -3,6 +3,6 @@
 # configuración y no se sirve nunca.
 Options -Indexes
 
-<FilesMatch "^(\.env.*|config\.php|migrate\.php)$|\.(env|sql|md|xlsx|xls|json|txt|log|bak|dist|example|sh)$">
+<FilesMatch "^(\.env.*|config\.php|migrate\.php|sync-tango\.php)$|\.(env|sql|md|xlsx|xls|json|txt|log|bak|dist|example|sh)$">
     Require all denied
 </FilesMatch>

@@ -32,7 +32,7 @@ if ($args[0] === '--json') {
 }
 
 $t = microtime(true);
-$res = resolverRenglones(obtenerPDO(), $renglones);
+$res = resolverRenglones(obtenerPDO(true), $renglones);
 printf("Búsqueda en catálogo: %.1f s · Tango: %s\n\n", microtime(true) - $t,
     $res['tango']['disponible'] ? ($res['tango']['consultado'] ? 'consultado' : 'no hizo falta') : 'NO disponible (' . $res['tango']['mensaje'] . ')');
 

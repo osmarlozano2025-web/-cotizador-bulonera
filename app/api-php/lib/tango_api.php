@@ -29,6 +29,8 @@ require_once __DIR__ . '/tango.php';
  */
 const TANGO_PROCESOS_POR_DEFECTO = [
     'pedidos' => 19845,
+    // Precios por lista (tabla GVA17 de Tango): una fila por artículo y por lista.
+    'precios' => 20083,
     'articulos' => 87,
     'clientes' => 2117,
     'depositos' => 2941,

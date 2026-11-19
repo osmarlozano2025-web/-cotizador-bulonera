@@ -65,6 +65,7 @@ $rutas = [
     ['GET', '#^/productos/buscar$#', fn() => rutaProductosBuscar()],
     ['GET', '#^/productos/familias$#', fn() => rutaProductosFamilias()],
     ['POST', '#^/productos/interpretar-imagen$#', fn() => rutaProductosInterpretarImagen()],
+    ['POST', '#^/productos/guardar-de-tango$#', fn() => rutaProductosGuardarDeTango()],
 
     ['POST', '#^/aprobaciones$#', fn() => rutaAprobacionesCrear()],
     ['GET', '#^/aprobaciones$#', fn() => rutaAprobacionesListar()],
@@ -87,6 +88,8 @@ $rutas = [
 
     ['GET', '#^/seguridad/eventos$#', fn() => rutaSeguridadEventos()],
 
+    ['GET', '#^/tango/sincronizacion$#', fn() => rutaTangoSincronizacionEstado()],
+    ['POST', '#^/tango/sincronizar$#', fn() => rutaTangoSincronizar()],
     ['GET', '#^/tango/clientes$#', fn() => rutaTangoClientes()],
     ['GET', '#^/tango/articulos$#', fn() => rutaTangoArticulos()],
 

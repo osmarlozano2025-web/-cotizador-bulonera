@@ -17,7 +17,7 @@ RewriteRule \.(bak|old|orig|swp|sql|log|dist|sh)$ - [F,L]
 
 # La API se llama sólo a través de /api/*. Su código interno no se abre por URL.
 RewriteRule ^api-php/(lib|routes|tests|db|storage|logs|plantillas)(/|$) - [F,L]
-RewriteRule ^api-php/(config|migrate)\.php$ - [F,L]
+RewriteRule ^api-php/(config|migrate|sync-tango)\.php$ - [F,L]
 
 <IfModule mod_headers.c>
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
