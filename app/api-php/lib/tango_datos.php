@@ -112,21 +112,46 @@ function clienteDesdeTango(array $c): array
  * parte, así "79005" encuentra "TOL79005") o por descripción, descripción
  * adicional o sinónimo, con todas las palabras.
  */
-function buscarArticulosTango(TangoApi $api, string $texto, int $limite = 30): array
+function condicionBuscarArticulos(string $texto): string
 {
-    $texto = trim($texto);
-    if (mb_strlen($texto) < TANGO_MINIMO_BUSQUEDA) return [];
-
     $porDescripcion = array_map(
         fn($p) => '(AXV_ARTICULO.DESCRIPCIO LIKE ' . likeTango($p)
             . ' OR AXV_ARTICULO.DESC_ADIC LIKE ' . likeTango($p)
             . ' OR AXV_ARTICULO.SINONIMO LIKE ' . likeTango($p) . ')',
         palabrasBusqueda($texto)
     );
-    $donde = 'AXV_ARTICULO.COD_STA11 LIKE ' . likeTango($texto) . ' OR (' . implode(' AND ', $porDescripcion) . ')';
+    return 'AXV_ARTICULO.COD_STA11 LIKE ' . likeTango($texto) . ' OR (' . implode(' AND ', $porDescripcion) . ')';
+}
 
-    $filas = $api->filtrar($api->proceso('articulos'), $donde);
+function buscarArticulosTango(TangoApi $api, string $texto, int $limite = 30): array
+{
+    $texto = trim($texto);
+    if (mb_strlen($texto) < TANGO_MINIMO_BUSQUEDA) return [];
+
+    $filas = $api->filtrar($api->proceso('articulos'), condicionBuscarArticulos($texto));
     return array_map('articuloDesdeTango', array_slice($filas, 0, $limite));
+}
+
+/**
+ * Varias búsquedas de artículos a la vez.
+ *
+ * @param string[] $textos
+ * @return array<string,array|TangoApiException> por texto: los artículos (ya en la forma de la app) o el error
+ */
+function buscarArticulosTangoEnParalelo(TangoApi $api, array $textos, int $limite = 600): array
+{
+    $filtros = [];
+    foreach (array_unique($textos) as $t) {
+        $t = trim($t);
+        if (mb_strlen($t) >= TANGO_MINIMO_BUSQUEDA) $filtros[$t] = condicionBuscarArticulos($t);
+    }
+    if (!$filtros) return [];
+
+    $salida = [];
+    foreach ($api->filtrarEnParalelo($api->proceso('articulos'), $filtros) as $t => $r) {
+        $salida[$t] = $r instanceof TangoApiException ? $r : array_map('articuloDesdeTango', array_slice($r, 0, $limite));
+    }
+    return $salida;
 }
 
 /** El porcentaje de IVA a partir del nombre de la alícuota de Tango ("IVA 21%", "10,5 %"). */

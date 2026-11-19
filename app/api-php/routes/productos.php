@@ -99,33 +99,136 @@ function rutaProductosFamilias(): void
     jsonSalida(array_column($rows, 'familia'));
 }
 
-// Compara texto detectado contra el catálogo usando similar_text() (nativo de PHP) como sustituto de Fuse.js
-function mejoresCoincidencias(PDO $pdo, string $descripcionBuscada, int $cantidad = 3): array
+/** Tope de consultas y de tiempo en Tango por foto: cada una es una espera por la red. */
+const TANGO_FOTO_MAX_CONSULTAS = 30;
+const TANGO_FOTO_SEGUNDOS = 45;
+/** Artículos que se leen de Tango por consulta (un producto con muchas medidas trae cientos). */
+const TANGO_FOTO_ARTICULOS = 600;
+
+/**
+ * Opciones de Tango para los renglones que el catálogo de la app no resuelve.
+ *
+ * Se consulta por el NOMBRE del producto y se compara la medida acá, por
+ * números. Las consultas distintas se hacen todas a la vez, y la respuesta de
+ * cada una queda guardada: seis renglones de "tirafondo" son una sola consulta
+ * a Tango, no seis.
+ *
+ * Si el nombre solo trae demasiados artículos ("tornillo allen" son miles y
+ * Tango tarda más de lo que se puede esperar), se vuelve a consultar sumando
+ * un número de la medida, que achica la respuesta a lo que interesa. Cada
+ * ronda es una tanda de consultas en paralelo.
+ *
+ * Si Tango no responde en absoluto se anota en $tango y se deja de intentar:
+ * una espera por renglón haría la lectura eterna.
+ *
+ * @param array $pendientes  posición del renglón => ['item' => renglón leído, 'yaOfrecidos' => [código => true]]
+ * @return array             posición del renglón => opciones de Tango (ya puntuadas)
+ */
+function opcionesDeTangoEnLote(PDO $pdo, array $pendientes, array &$tango): array
 {
-    $palabras = preg_split('/\s+/', mb_strtolower(preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $descripcionBuscada)));
-    $palabras = array_filter($palabras, fn($p) => mb_strlen($p) >= 3);
-    if (empty($palabras)) return [];
+    if (!$pendientes || !$tango['disponible']) return [];
 
-    // Traemos candidatos que compartan al menos una palabra significativa
-    $condiciones = [];
-    $params = [];
-    foreach (array_slice($palabras, 0, 4) as $p) {
-        $condiciones[] = 'descripcion LIKE ?';
-        $params[] = "%$p%";
-    }
-    $sql = 'SELECT * FROM productos WHERE (' . implode(' OR ', $condiciones) . ') LIMIT 300';
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $candidatos = $stmt->fetchAll();
+    require_once __DIR__ . '/../lib/tango_datos.php';
+    require_once __DIR__ . '/../lib/busqueda_productos.php';
 
-    $puntuados = [];
-    foreach ($candidatos as $c) {
-        $texto = $c['descripcion'] . ' ' . ($c['medida'] ?? '');
-        similar_text(mb_strtolower($descripcionBuscada), mb_strtolower($texto), $pct);
-        $puntuados[] = ['item' => castProducto($c), 'score' => $pct];
+    // Por cada renglón, las consultas a probar: de la más general a la más angosta.
+    $plan = [];
+    foreach ($pendientes as $i => $p) {
+        $item = $p['item'];
+        $palabras = $item['codigo'] !== '' ? [$item['codigo']] : busqPalabrasConsulta($item);
+        if (!$palabras) continue;
+        $dos = implode(' ', $palabras);
+        $una = $palabras[0];
+        $numero = busqNumeroDeConsulta($item['medida']);
+        $anchas = [$dos, $una];
+        $angostas = $numero !== '' ? ["$dos $numero", "$una $numero"] : [];
+        // Los productos que en Tango tienen miles de artículos (allen, bulones) tardan demasiado
+        // en consultarse enteros: se empieza por la consulta angosta, con un número de la medida.
+        $enormes = array_intersect($palabras, ['allen', 'bulon', 'tornillo', 'torn', 'tuerca', 'arandela']);
+        $orden = $enormes && $angostas ? array_merge($angostas, $anchas) : array_merge($anchas, $angostas);
+        $candidatas = array_values(array_unique(array_filter($orden, fn($t) => mb_strlen($t) >= TANGO_MINIMO_BUSQUEDA)));
+        // Si una consulta resulta enorme, las que siguen sin número tampoco servirían: se salta a las angostas.
+        $primeraAngosta = count($candidatas);
+        foreach ($candidatas as $k => $c) if ($numero !== '' && str_ends_with($c, " $numero")) { $primeraAngosta = $k; break; }
+        if ($candidatas) $plan[$i] = ['candidatas' => $candidatas, 'pos' => 0, 'articulos' => null, 'angosta' => $primeraAngosta];
     }
-    usort($puntuados, fn($a, $b) => $b['score'] <=> $a['score']);
-    return array_slice($puntuados, 0, $cantidad);
+
+    try {
+        if ($tango['api'] === null) $tango['api'] = TangoApi::desdeConfig($pdo, 12);
+        $mapaFamilias = configJson($pdo, 'tangoFamilias');
+
+        for ($ronda = 0; $ronda < 4; $ronda++) {
+            // Lo que falta consultar en esta ronda, sin repetidos ni lo ya guardado.
+            $faltan = [];
+            foreach ($plan as $pl) {
+                if ($pl['articulos'] !== null || $pl['pos'] >= count($pl['candidatas'])) continue;
+                $t = $pl['candidatas'][$pl['pos']];
+                if (!isset($tango['cache'][$t])) $faltan[$t] = true;
+            }
+
+            if ($faltan) {
+                $disponibles = TANGO_FOTO_MAX_CONSULTAS - $tango['consultas'];
+                if ($disponibles <= 0 || (microtime(true) - $tango['inicio']) > TANGO_FOTO_SEGUNDOS) {
+                    $tango['mensaje'] ??= 'Se llegó al límite de consultas a Tango para esta foto: algunos renglones quedaron sin opciones de Tango.';
+                    break;
+                }
+                $textos = array_slice(array_keys($faltan), 0, $disponibles);
+                $tango['consultas'] += count($textos);
+
+                foreach (buscarArticulosTangoEnParalelo($tango['api'], $textos, TANGO_FOTO_ARTICULOS) as $t => $r) {
+                    if ($r instanceof TangoApiException) {
+                        // Tango contestó pero la respuesta es enorme y llegó cortada o no llegó a tiempo: se achica la consulta.
+                        if (!preg_match('/timed out.*?\b[1-9]\d* out of|respuesta ilegible/', $r->getMessage())) throw $r;
+                        $tango['cache'][$t] = 'GRANDE';
+                    } else {
+                        $tango['cache'][$t] = completarArticulosConLaApp($pdo, $r, $mapaFamilias);
+                    }
+                }
+            }
+
+            $siguen = false;
+            foreach ($plan as &$pl) {
+                if ($pl['articulos'] !== null || $pl['pos'] >= count($pl['candidatas'])) continue;
+                $r = $tango['cache'][$pl['candidatas'][$pl['pos']]] ?? null;
+                if ($r === null) continue; // no se llegó a consultar
+                if ($r !== 'GRANDE') $tango['usado'] = true;
+                if (is_array($r) && $r) { $pl['articulos'] = $r; continue; }
+                $pl['pos'] = $r === 'GRANDE' ? max($pl['pos'] + 1, $pl['angosta']) : $pl['pos'] + 1;
+                $siguen = true;
+            }
+            unset($pl);
+            if (!$siguen) break;
+        }
+    } catch (Throwable $e) {
+        $tango['disponible'] = false;
+        $tango['mensaje'] = 'Tango no respondió: ' . mb_substr($e->getMessage(), 0, 140);
+        error_log('foto→tango: ' . $e->getMessage());
+        return [];
+    }
+
+    $salida = [];
+    foreach ($plan as $i => $pl) {
+        if (!$pl['articulos']) continue;
+        $ya = $pendientes[$i]['yaOfrecidos'];
+        $filas = array_values(array_filter($pl['articulos'], function ($f) use ($ya) {
+            foreach (codigosAppDeArticulo($f['codigo']) as $c) if (isset($ya[$c])) return false;
+            return true;
+        }));
+        $mejores = busqMejores($pendientes[$i]['item'], $filas, 4);
+        foreach ($mejores as &$m) $m['origen'] = 'tango';
+        unset($m);
+        if ($mejores) $salida[$i] = $mejores;
+    }
+    return $salida;
+}
+
+/** Lo que el navegador necesita de una opción: lo del producto, sin datos internos. */
+function opcionParaPantalla(array $o): array
+{
+    unset($o['_indice']);
+    $o = castProducto($o);
+    $o['puntaje'] = round((float) ($o['puntaje'] ?? 0), 2);
+    return $o;
 }
 
 function rutaProductosInterpretarImagen(): void
@@ -133,7 +236,7 @@ function rutaProductosInterpretarImagen(): void
     // Cada lectura le cuesta plata a la cuenta de OpenAI: sólo gente conocida,
     // y sólo imágenes de verdad.
     requireAuth();
-    // Cada lectura cuesta plata: 30 por hora y por origen alcanzan para trabajar y frenan el abuso.
+    // 30 por hora y por origen alcanzan para trabajar y frenan el abuso.
     limitar('imagen:' . ipCliente(), 30, 3600, 'interpretar-imagen');
 
     if (!isset($_FILES['imagen'])) jsonError('No se recibió imagen', 400);
@@ -155,22 +258,79 @@ function rutaProductosInterpretarImagen(): void
         jsonError('Eso no es una foto. Se aceptan JPG, PNG, WEBP y HEIC.', 415);
     }
 
-    $imageBase64 = base64_encode(file_get_contents($archivo['tmp_name']));
+    @set_time_limit(180);
+    try {
+        $renglones = leerPedidoDeImagen(base64_encode(file_get_contents($archivo['tmp_name'])), $mimeType);
+    } catch (Throwable $e) {
+        error_log('lectura de foto: ' . $e->getMessage());
+        jsonError('No se pudo leer la foto: ' . mb_substr($e->getMessage(), 0, 200), 502);
+    }
 
-    $productosDetectados = interpretarImagenOpenAI($imageBase64, $mimeType);
+    jsonSalida(resolverRenglones(obtenerPDO(), $renglones));
+}
 
-    $pdo = obtenerPDO();
-    $resultado = [];
-    foreach ($productosDetectados as $pd) {
-        $matches = mejoresCoincidencias($pdo, $pd['descripcion'] ?? '');
-        $mejores = array_map(fn($m) => $m['item'], $matches);
-        $matchExacto = (!empty($matches) && $matches[0]['score'] > 70) ? $matches[0]['item'] : null;
+/** Busca cada renglón leído. Separado de la lectura para poder probarlo sin la IA. */
+function resolverRenglones(PDO $pdo, array $renglones): array
+{
+    require_once __DIR__ . '/../lib/busqueda_productos.php';
 
-        $resultado[] = [
-            'detectado' => $pd,
-            'sugerencias' => $mejores,
-            'matchExacto' => $matchExacto,
+    $catalogo = busqCargarCatalogo($pdo);
+    $tango = ['api' => null, 'disponible' => true, 'consultas' => 0, 'usado' => false, 'mensaje' => null, 'cache' => [], 'inicio' => microtime(true)];
+
+    // 1) Lo que tiene la app.
+    $opcionesPorRenglon = [];
+    $pendientes = [];
+    foreach ($renglones as $i => $r) {
+        $opciones = busqMejores($r, $catalogo, 4);
+        foreach ($opciones as &$o) $o['origen'] = 'app';
+        unset($o);
+        $opcionesPorRenglon[$i] = $opciones;
+
+        // Si lo de la app no resuelve el renglón, se mira en Tango.
+        if (!array_filter($opciones, 'busqEsBuena')) {
+            $yaOfrecidos = [];
+            foreach ($opciones as $o) $yaOfrecidos[$o['codigo'] ?? ''] = true;
+            $pendientes[$i] = ['item' => $r, 'yaOfrecidos' => $yaOfrecidos];
+        }
+    }
+
+    // 2) Lo pendiente, a Tango de una sola vez.
+    $deTango = opcionesDeTangoEnLote($pdo, $pendientes, $tango);
+
+    // 3) Se arma la respuesta.
+    $items = [];
+    foreach ($renglones as $i => $r) {
+        $opciones = $opcionesPorRenglon[$i];
+        if (!empty($deTango[$i])) {
+            $opciones = array_merge($opciones, $deTango[$i]);
+            // Lo que coincide en medida primero; dentro de eso, lo de mejor puntaje.
+            usort($opciones, fn($a, $b) =>
+                [(int) !empty($b['medidaCoincide']), $b['puntaje']] <=> [(int) !empty($a['medidaCoincide']), $a['puntaje']]);
+            $opciones = array_slice($opciones, 0, 4);
+        }
+
+        $ganadora = busqGanadora($opciones);
+        $items[] = [
+            'detectado' => [
+                'producto' => $r['producto'],
+                'medida' => $r['medida'],
+                'descripcion' => trim($r['producto'] . ' ' . $r['medida']),
+                'cantidad' => $r['cantidad'],
+                'codigo' => $r['codigo'],
+                'original' => $r['original'],
+                'dudoso' => $r['dudoso'],
+            ],
+            'sugerencias' => array_map('opcionParaPantalla', $opciones),
+            'matchExacto' => $ganadora ? opcionParaPantalla($ganadora) : null,
         ];
     }
-    jsonSalida($resultado);
+
+    return [
+        'items' => $items,
+        'tango' => [
+            'consultado' => $tango['usado'],
+            'disponible' => $tango['disponible'],
+            'mensaje' => $tango['mensaje'],
+        ],
+    ];
 }

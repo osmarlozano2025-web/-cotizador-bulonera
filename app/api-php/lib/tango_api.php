@@ -96,7 +96,7 @@ class TangoApi
      * y sin ella el puente no deja pasar. tangoProcesos es un JSON con los
      * números de proceso que difieran de los por defecto.
      */
-    public static function desdeConfig(PDO $pdo): self
+    public static function desdeConfig(PDO $pdo, int $timeout = 20): self
     {
         $cfg = [];
         $claves = "'tangoApiKey','tangoUrl','tangoEmpresa','tangoClavePuente','tangoProcesos'";
@@ -105,7 +105,7 @@ class TangoApi
         }
         $extra = empty($cfg['tangoClavePuente']) ? [] : ['X-Clave-Puente: ' . $cfg['tangoClavePuente']];
         $procesos = json_decode($cfg['tangoProcesos'] ?? '', true);
-        return new self($cfg['tangoUrl'] ?? '', $cfg['tangoApiKey'] ?? '', $cfg['tangoEmpresa'] ?? '7', 20, $extra,
+        return new self($cfg['tangoUrl'] ?? '', $cfg['tangoApiKey'] ?? '', $cfg['tangoEmpresa'] ?? '7', $timeout, $extra,
             is_array($procesos) ? $procesos : []);
     }
 
@@ -145,6 +145,69 @@ class TangoApi
             'process' => $proceso, 'view' => '', 'filtroSql' => 'WHERE ' . $dondeSql,
         ]);
         return $r['list'] ?? [];
+    }
+
+    /**
+     * Varias consultas de filtro a la vez (curl_multi). Una consulta a Tango
+     * tarda segundos; hechas de a una, una foto con 30 renglones tardaría minutos.
+     *
+     * @param array<string,string> $filtros clave => condición SQL (lo que va después de WHERE)
+     * @return array<string,array|TangoApiException> por clave: la lista de filas, o el error de esa consulta
+     */
+    public function filtrarEnParalelo(int $proceso, array $filtros, int $maxSimultaneas = 12): array
+    {
+        if (!function_exists('curl_multi_init')) {
+            throw new TangoApiException('El servidor no tiene la extensión curl de PHP activa');
+        }
+        $resultados = [];
+        $cabeceras = array_merge(
+            ['Accept: application/json', 'ApiAuthorization: ' . $this->token, 'Company: ' . $this->empresa],
+            $this->cabecerasExtra
+        );
+
+        foreach (array_chunk($filtros, max(1, $maxSimultaneas), true) as $tanda) {
+            $multi = curl_multi_init();
+            $manijas = [];
+            foreach ($tanda as $clave => $donde) {
+                $query = ['process' => $proceso, 'view' => '', 'filtroSql' => 'WHERE ' . $donde];
+                $ch = curl_init("{$this->url}/api/GetByFilter?" . http_build_query($query, '', '&', PHP_QUERY_RFC3986));
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => $this->timeout,
+                    CURLOPT_CONNECTTIMEOUT => 8,
+                    CURLOPT_HTTPHEADER => $cabeceras,
+                ]);
+                curl_multi_add_handle($multi, $ch);
+                $manijas[$clave] = $ch;
+            }
+
+            do {
+                $estado = curl_multi_exec($multi, $activas);
+                if ($activas) curl_multi_select($multi, 1.0);
+            } while ($activas && $estado === CURLM_OK);
+
+            foreach ($manijas as $clave => $ch) {
+                $texto = curl_multi_getcontent($ch);
+                $http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $errno = curl_errno($ch);
+                $falla = curl_error($ch);
+                curl_multi_remove_handle($multi, $ch);
+                curl_close($ch);
+
+                if ($errno !== 0) {
+                    $resultados[$clave] = new TangoApiException('No se pudo conectar con Tango: ' . $falla);
+                } elseif ($http === 401 || $http === 403) {
+                    $resultados[$clave] = new TangoApiException('Tango rechazó el token o la empresa (HTTP ' . $http . ')', null, $http);
+                } else {
+                    $json = json_decode((string) $texto, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
+                    $resultados[$clave] = ($http >= 400 || !is_array($json))
+                        ? new TangoApiException("Tango respondió HTTP $http" . ($http < 400 ? " con una respuesta ilegible (" . strlen((string) $texto) . " bytes)" : ""), mb_substr((string) $texto, 0, 300), $http)
+                        : ($json['list'] ?? []);
+                }
+            }
+            curl_multi_close($multi);
+        }
+        return $resultados;
     }
 
     /** Texto entre comillas simples y con las comillas internas duplicadas. */
@@ -242,7 +305,7 @@ class TangoApi
         if ($http === 401 || $http === 403) {
             throw new TangoApiException('Tango rechazó el token o la empresa (HTTP ' . $http . ')', null, $http);
         }
-        $json = json_decode($texto, true);
+        $json = json_decode($texto, true, 512, JSON_INVALID_UTF8_SUBSTITUTE);
         if ($http >= 400 || !is_array($json)) {
             throw new TangoApiException("Tango respondió HTTP $http", mb_substr((string) $texto, 0, 500), $http);
         }

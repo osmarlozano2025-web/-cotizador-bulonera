@@ -313,7 +313,8 @@ export default function NuevoPedido() {
       const idx = prev.findIndex(i => i.codigo === producto.codigo && i.familia === producto.familia)
       if (idx >= 0) {
         const copia = [...prev]
-        copia[idx] = { ...copia[idx], cantidad: copia[idx].cantidad + 1 }
+        // Si el producto ya estaba, se suma lo pedido (una foto trae cantidades; el buscador, de a uno).
+        copia[idx] = { ...copia[idx], cantidad: copia[idx].cantidad + (producto.cantidad || 1) }
         return copia
       }
       return [...prev, { ...producto, cantidad: producto.cantidad || 1 }]

@@ -1,11 +1,38 @@
 import { useState, useRef } from 'react'
 
+/**
+ * Pedido por foto.
+ *
+ * La IA lee la foto y la deja en renglones (producto, medida, cantidad). Cada
+ * renglón trae hasta 4 opciones del catálogo de la app o de Tango, con la
+ * mejor ya elegida cuando no hay duda. Se revisa, se corrige la cantidad si
+ * hace falta y se agrega al pedido.
+ */
+
+/** Lo que el pedido necesita de un producto, con números donde Tango no trae precio. */
+function productoParaPedido(opcion, cantidad) {
+  return {
+    ...opcion,
+    precioLista: Number(opcion.precioLista) || 0,
+    precioGranel: Number(opcion.precioGranel) || 0,
+    ivaPorcentaje: opcion.ivaPorcentaje ?? 21,
+    cantidad,
+  }
+}
+
+function Etiqueta({ children, clase }) {
+  return <span className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${clase}`}>{children}</span>
+}
+
 export default function SubidorFoto({ onAgregar }) {
   const [archivo, setArchivo] = useState(null)
   const [preview, setPreview] = useState(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
-  const [resultados, setResultados] = useState([])
+  const [renglones, setRenglones] = useState([])
+  const [tango, setTango] = useState(null)
+  const [elegida, setElegida] = useState({})     // renglón -> índice de la opción elegida
+  const [cantidades, setCantidades] = useState({}) // renglón -> cantidad
   const [agregados, setAgregados] = useState(new Set())
   const inputRef = useRef(null)
 
@@ -13,7 +40,10 @@ export default function SubidorFoto({ onAgregar }) {
     if (!file) return
     setArchivo(file)
     setPreview(URL.createObjectURL(file))
-    setResultados([])
+    setRenglones([])
+    setTango(null)
+    setElegida({})
+    setCantidades({})
     setAgregados(new Set())
     setError('')
   }
@@ -37,11 +67,23 @@ export default function SubidorFoto({ onAgregar }) {
         throw new Error(data.error || `Error del servidor (${res.status})`)
       }
       const data = await res.json()
-      setResultados(data)
+      const items = data.items || []
+      setRenglones(items)
+      setTango(data.tango || null)
+      // Lo que no deja dudas llega ya elegido; el resto lo elige quien revisa.
+      const sel = {}
+      const cant = {}
+      items.forEach((it, i) => {
+        if (it.matchExacto) sel[i] = 0
+        cant[i] = it.detectado.cantidad || 1
+      })
+      setElegida(sel)
+      setCantidades(cant)
+      setAgregados(new Set())
     } catch (e) {
       setError(
         e.message === 'Failed to fetch'
-          ? 'No se pudo conectar con el servidor local. Verificá que esté corriendo en el puerto 3001.'
+          ? 'No se pudo conectar con el servidor. Probá de nuevo en un momento.'
           : e.message
       )
     } finally {
@@ -49,10 +91,17 @@ export default function SubidorFoto({ onAgregar }) {
     }
   }
 
-  const agregar = (item, idx, producto) => {
-    onAgregar({ ...producto, cantidad: item.detectado.cantidad || 1 })
-    setAgregados(prev => new Set(prev).add(idx))
+  const agregarRenglon = (i) => {
+    const opcion = renglones[i]?.sugerencias?.[elegida[i]]
+    if (!opcion) return
+    onAgregar(productoParaPedido(opcion, Number(cantidades[i]) || 1))
+    setAgregados(prev => new Set(prev).add(i))
   }
+
+  const listos = renglones.map((_, i) => i).filter(i => elegida[i] !== undefined && !agregados.has(i))
+  const agregarListos = () => listos.forEach(agregarRenglon)
+
+  const sinOpciones = renglones.filter(it => !it.sugerencias?.length).length
 
   return (
     <div className="space-y-4">
@@ -64,7 +113,7 @@ export default function SubidorFoto({ onAgregar }) {
         >
           <div className="text-4xl mb-3">📷</div>
           <p className="font-semibold text-amber-400 text-sm">Subir foto del pedido</p>
-          <p className="text-xs text-amber-400 mt-1">Manuscrito o foto, se interpreta automáticamente</p>
+          <p className="text-xs text-amber-400 mt-1">Manuscrito, impreso o captura: se interpreta automáticamente</p>
         </button>
       )}
 
@@ -89,7 +138,7 @@ export default function SubidorFoto({ onAgregar }) {
                   disabled={cargando}
                   className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded-lg transition"
                 >
-                  {cargando ? 'Interpretando...' : 'Interpretar pedido'}
+                  {cargando ? 'Leyendo la foto…' : renglones.length ? 'Volver a leer' : 'Interpretar pedido'}
                 </button>
                 <button
                   onClick={() => inputRef.current?.click()}
@@ -98,55 +147,129 @@ export default function SubidorFoto({ onAgregar }) {
                   Cambiar foto
                 </button>
               </div>
+              {cargando && (
+                <p className="text-xs text-slate-400 animate-pulse">
+                  Leyendo el pedido y buscando cada producto en el catálogo y en Tango. Puede tardar hasta un minuto.
+                </p>
+              )}
             </div>
           </div>
 
           {error && (
-            <p className="text-xs text-rose-400 bg-rose-500/10 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{error}</p>
           )}
 
-          {resultados.length > 0 && (
-            <ul className="border rounded-lg overflow-hidden divide-y divide-white/5">
-              {resultados.map((item, idx) => (
-                <li key={idx} className="px-4 py-3">
-                  <p className="text-sm font-medium">
-                    {item.detectado.cantidad || 1}× {item.detectado.descripcion}
-                  </p>
-                  {item.matchExacto ? (
-                    <button
-                      onClick={() => agregar(item, idx, item.matchExacto)}
-                      disabled={agregados.has(idx)}
-                      className="text-xs mt-1 text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-1 disabled:opacity-50 text-left"
-                    >
-                      {agregados.has(idx) ? '✓ Agregado' : '+ Agregar match: '}
-                      {!agregados.has(idx) && (
-                        <>
-                          <span className="codigo">{item.matchExacto.codigo}</span>
-                          {' '}{item.matchExacto.descripcion}
-                        </>
+          {renglones.length === 0 && !cargando && preview && archivo && !error && tango && (
+            <p className="text-xs text-slate-400">No se encontró ningún producto en la foto.</p>
+          )}
+
+          {renglones.length > 0 && (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <p className="text-slate-300">
+                  <span className="font-semibold">{renglones.length}</span> renglones leídos
+                  {' · '}<span className="text-emerald-400">{Object.keys(elegida).length} listos</span>
+                  {' · '}<span className="text-amber-400">{renglones.length - Object.keys(elegida).length - sinOpciones} para elegir</span>
+                  {sinOpciones > 0 && <> · <span className="text-rose-400">{sinOpciones} sin opciones</span></>}
+                </p>
+                <button
+                  onClick={agregarListos}
+                  disabled={listos.length === 0}
+                  className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-semibold px-3 py-1.5 rounded-lg transition"
+                >
+                  Agregar los {listos.length} listos
+                </button>
+              </div>
+
+              {tango && (!tango.disponible || tango.mensaje) && (
+                <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+                  {tango.mensaje || 'No se pudo consultar Tango: sólo se muestran productos que ya están en la app.'}
+                </p>
+              )}
+
+              <ul className="border rounded-lg overflow-hidden divide-y divide-white/5">
+                {renglones.map((item, i) => {
+                  const d = item.detectado
+                  const ya = agregados.has(i)
+                  return (
+                    <li key={i} className={`px-4 py-3 ${ya ? 'opacity-60' : ''}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            {d.producto} {d.medida && <span className="text-amber-300">· {d.medida}</span>}
+                            {d.dudoso && <Etiqueta clase="ml-2 bg-rose-500/20 text-rose-300">revisar lectura</Etiqueta>}
+                          </p>
+                          {d.original && d.original !== d.descripcion && (
+                            <p className="text-[11px] text-slate-500 mt-0.5 truncate">En la foto: {d.original}</p>
+                          )}
+                        </div>
+                        <label className="flex items-center gap-1 text-xs text-slate-400 shrink-0">
+                          Cant.
+                          <input
+                            type="number"
+                            min="1"
+                            value={cantidades[i] ?? ''}
+                            onChange={e => setCantidades(c => ({ ...c, [i]: e.target.value }))}
+                            disabled={ya}
+                            className="w-20 border rounded px-2 py-1 text-sm text-right bg-white/5"
+                          />
+                        </label>
+                      </div>
+
+                      {item.sugerencias.length === 0 ? (
+                        <p className="text-xs text-slate-400 mt-1.5">Sin coincidencias en el catálogo ni en Tango. Buscalo a mano.</p>
+                      ) : (
+                        <div className="mt-2 space-y-1">
+                          {item.sugerencias.map((s, k) => {
+                            const activa = elegida[i] === k
+                            return (
+                              <button
+                                key={`${s.origen}-${s.codigo}-${k}`}
+                                type="button"
+                                disabled={ya}
+                                onClick={() => setElegida(e => ({ ...e, [i]: k }))}
+                                className={`w-full text-left text-xs rounded border px-2.5 py-1.5 flex items-center gap-2 transition ${
+                                  activa
+                                    ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-200'
+                                    : s.medidaCoincide
+                                      ? 'bg-sky-500/10 border-sky-500/20 text-sky-300 hover:bg-sky-500/20'
+                                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                                }`}
+                              >
+                                <span className={`w-3 h-3 rounded-full border shrink-0 ${activa ? 'bg-emerald-400 border-emerald-300' : 'border-slate-500'}`} />
+                                <span className="codigo shrink-0">{s.codigo}</span>
+                                <span className="truncate">{s.descripcion}{s.medida ? ` · ${s.medida}` : ''}</span>
+                                <span className="ml-auto flex items-center gap-1 shrink-0">
+                                  {s.origen === 'tango' && <Etiqueta clase="bg-violet-500/20 text-violet-300">Tango</Etiqueta>}
+                                  {s.medidaAproximada && <Etiqueta clase="bg-amber-500/20 text-amber-300">medida aprox.</Etiqueta>}
+                                  {!s.medidaCoincide && <Etiqueta clase="bg-amber-500/20 text-amber-300">otra medida</Etiqueta>}
+                                </span>
+                              </button>
+                            )
+                          })}
+                        </div>
                       )}
-                    </button>
-                  ) : item.sugerencias.length > 0 ? (
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {item.sugerencias.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => agregar(item, idx, s)}
-                          disabled={agregados.has(idx)}
-                          className="text-xs text-sky-400 bg-sky-500/10 border border-blue-200 rounded px-2 py-1 hover:bg-blue-100 disabled:opacity-50 text-left"
-                        >
-                          {agregados.has(idx) ? '✓' : '+'}{' '}
-                          <span className="codigo">{s.codigo}</span>{' '}
-                          {s.descripcion}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 mt-1">Sin coincidencias en el catálogo</p>
-                  )}
-                </li>
-              ))}
-            </ul>
+
+                      {item.sugerencias.length > 0 && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            onClick={() => agregarRenglon(i)}
+                            disabled={ya || elegida[i] === undefined}
+                            className="text-xs font-semibold bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white rounded px-3 py-1 transition"
+                          >
+                            {ya ? '✓ Agregado' : elegida[i] === undefined ? 'Elegí una opción' : '+ Agregar al pedido'}
+                          </button>
+                          {elegida[i] !== undefined && item.sugerencias[elegida[i]]?.origen === 'tango'
+                            && !Number(item.sugerencias[elegida[i]]?.precioLista) && !ya && (
+                            <span className="text-[11px] text-amber-300">Viene de Tango y todavía no tiene precio en la app.</span>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            </>
           )}
         </div>
       )}

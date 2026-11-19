@@ -9,6 +9,7 @@
     "migrate": "node server/dev-php.mjs api-php/migrate.php",
     "test:precios": "node server/dev-php.mjs api-php/tests/precios-test.php",
     "test:seguridad": "node server/dev-php.mjs api-php/tests/seguridad-test.php",
+    "test:busqueda": "node server/dev-php.mjs api-php/tests/busqueda-test.php",
     "build": "cd client && npm install && npm run build",
     "deploy:paquete": "npm run build && node server/preparar-paquete.mjs"
   },
