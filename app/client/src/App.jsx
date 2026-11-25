@@ -13,7 +13,6 @@ import Productos from './pages/Productos'
 import Integraciones from './pages/Integraciones'
 import Personal from './pages/Personal'
 import Configuraciones from './pages/Configuraciones'
-import ConfirmarPedido from './pages/ConfirmarPedido'
 import Proforma from './pages/Proforma'
 import NotaDeposito from './pages/NotaDeposito'
 import Login from './pages/Login'
@@ -68,8 +67,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Registro />} />
         <Route path="/verificar-email/:tipo/:token" element={<VerificarEmail />} />
-        <Route path="/confirmar/:token" element={<ConfirmarPedido />} />
-        <Route path="/proforma/:token" element={<Proforma />} />
+        <Route path="/proforma/:token" element={<RequireAuth><Proforma /></RequireAuth>} />
         <Route path="/" element={<Pagina seccion="nuevo-pedido"><NuevoPedido /></Pagina>} />
         <Route path="/vista-previa" element={<Pagina seccion="nuevo-pedido"><VistaPrevia /></Pagina>} />
         <Route path="/aprobaciones" element={<Pagina seccion="aprobaciones"><Aprobaciones /></Pagina>} />

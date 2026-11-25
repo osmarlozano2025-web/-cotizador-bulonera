@@ -7,8 +7,7 @@ export default function VerificarEmail() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const ruta = tipo === 'cliente' ? 'verificar-cliente' : 'verificar-personal'
-    fetch(`/api/auth/${ruta}/${token}`, { method: 'POST' })
+    fetch(`/api/auth/verificar-personal/${token}`, { method: 'POST' })
       .then(async r => {
         const data = await r.json().catch(() => ({}))
         if (!r.ok) throw new Error(data.error || 'No se pudo confirmar el email')
@@ -27,9 +26,7 @@ export default function VerificarEmail() {
             <p className="text-2xl">✅</p>
             <p className="text-slate-100 font-semibold">Cuenta confirmada</p>
             <p className="text-sm text-slate-400">
-              {tipo === 'cliente'
-                ? 'Ya podés ingresar con tu email o CUIT y la contraseña que elegiste.'
-                : 'Ya podés ingresar. Un administrador te va a asignar los permisos.'}
+              Ya podés ingresar. Un administrador te va a asignar los permisos.
             </p>
           </>
         )}

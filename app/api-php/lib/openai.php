@@ -24,8 +24,9 @@ function modeloVision(): string
 
 const PROMPT_LECTURA_PEDIDO = <<<TXT
 Sos el asistente de "Córdoba Bulones", una bulonería y ferretería industrial argentina.
-Te muestro la foto de un pedido de un cliente: puede ser una hoja o cuaderno escrito a mano,
-una lista impresa, un mensaje de WhatsApp o una captura. Leelo con mucho cuidado y devolvé TODOS
+Te muestro un pedido de un cliente: puede ser la foto de una hoja o cuaderno escrito a mano, una lista
+impresa, un mensaje de WhatsApp, una captura, un PDF, o el texto de una planilla (Excel o CSV, una fila por
+renglón, con columnas como código, descripción, medida y cantidad). Leelo con mucho cuidado y devolvé TODOS
 los renglones que se piden, uno por cada producto en cada medida.
 
 CÓMO SE ARMA UN PEDIDO (casi siempre así):
@@ -71,6 +72,25 @@ TXT;
  */
 function leerPedidoDeImagen(string $imageBase64, string $mimeType): array
 {
+    // detail=high: la letra manuscrita de un cuaderno necesita la imagen en alta resolución.
+    return leerPedidoConIA(['type' => 'image_url', 'image_url' => ['url' => "data:$mimeType;base64,$imageBase64", 'detail' => 'high']]);
+}
+
+/** Un PDF (escaneado o con texto): el modelo lo lee entero, página por página. */
+function leerPedidoDePdf(string $pdfBase64): array
+{
+    return leerPedidoConIA(['type' => 'file', 'file' => ['filename' => 'pedido.pdf', 'file_data' => "data:application/pdf;base64,$pdfBase64"]]);
+}
+
+/** El texto de una planilla (Excel o CSV ya pasada a texto por el navegador). */
+function leerPedidoDeTexto(string $texto): array
+{
+    return leerPedidoConIA(['type' => 'text', 'text' => "Contenido de la planilla (una fila por línea, columnas separadas por ;):\n\n" . $texto]);
+}
+
+/** Manda el pedido a la IA y lo devuelve ya ordenado en renglones. $parte es la imagen, el PDF o el texto. */
+function leerPedidoConIA(array $parte): array
+{
     $apiKey = obtenerOpenAIKey();
     if ($apiKey === '') throw new Exception('Falta la clave de OpenAI en Integraciones');
 
@@ -87,8 +107,7 @@ function leerPedidoDeImagen(string $imageBase64, string $mimeType): array
                 'role' => 'user',
                 'content' => [
                     ['type' => 'text', 'text' => PROMPT_LECTURA_PEDIDO],
-                    // detail=high: la letra manuscrita de un cuaderno necesita la imagen en alta resolución.
-                    ['type' => 'image_url', 'image_url' => ['url' => "data:$mimeType;base64,$imageBase64", 'detail' => 'high']],
+                    $parte,
                 ],
             ]],
         ];

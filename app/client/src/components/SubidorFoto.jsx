@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react'
+import * as XLSX from 'xlsx'
+import BuscadorProducto from './BuscadorProducto'
 
 /**
  * Pedido por foto.
@@ -18,6 +20,23 @@ function productoParaPedido(opcion, cantidad) {
     ivaPorcentaje: opcion.ivaPorcentaje ?? 21,
     cantidad,
   }
+}
+
+const esPlanilla = (archivo) => /\.(xlsx?|xlsm|csv)$/i.test(archivo?.name || '')
+const esPdf = (archivo) => archivo?.type === 'application/pdf' || /\.pdf$/i.test(archivo?.name || '')
+
+/**
+ * Una planilla (Excel de cualquier versión o CSV) pasada a texto, una fila por
+ * línea. El navegador la lee y la IA recibe sólo el texto: no hace falta subir el archivo.
+ */
+async function planillaATexto(archivo) {
+  const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array' })
+  const partes = []
+  for (const nombre of libro.SheetNames) {
+    const csv = XLSX.utils.sheet_to_csv(libro.Sheets[nombre], { FS: ';', blankrows: false }).trim()
+    if (csv) partes.push(libro.SheetNames.length > 1 ? `--- Hoja: ${nombre}\n${csv}` : csv)
+  }
+  return partes.join('\n\n')
 }
 
 const pesos = n => '$ ' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -45,7 +64,7 @@ function Etiqueta({ children, clase }) {
   return <span className={`text-[10px] font-semibold uppercase tracking-wide rounded px-1.5 py-0.5 ${clase}`}>{children}</span>
 }
 
-export default function SubidorFoto({ onAgregar }) {
+export default function SubidorFoto({ onAgregar, config }) {
   const [archivo, setArchivo] = useState(null)
   const [preview, setPreview] = useState(null)
   const [cargando, setCargando] = useState(false)
@@ -76,7 +95,13 @@ export default function SubidorFoto({ onAgregar }) {
     setError('')
     try {
       const formData = new FormData()
-      formData.append('imagen', archivo)
+      if (esPlanilla(archivo)) {
+        const texto = await planillaATexto(archivo)
+        if (!texto) throw new Error('La planilla está vacía.')
+        formData.append('texto', texto)
+      } else {
+        formData.append('imagen', archivo)
+      }
       // Leer la foto le cuesta plata a la cuenta de OpenAI: el backend pide sesión.
       const token = localStorage.getItem('cb_token')
       const res = await fetch('/api/productos/interpretar-imagen', {
@@ -160,16 +185,15 @@ export default function SubidorFoto({ onAgregar }) {
           className="w-full border-2 border-dashed border-amber-500/30 rounded-xl p-8 text-center bg-amber-500/10 hover:bg-amber-500/20 transition"
         >
           <div className="text-4xl mb-3">📷</div>
-          <p className="font-semibold text-amber-400 text-sm">Subir foto del pedido</p>
-          <p className="text-xs text-amber-400 mt-1">Manuscrito, impreso o captura: se interpreta automáticamente</p>
+          <p className="font-semibold text-amber-400 text-sm">Subir foto, PDF o planilla del pedido</p>
+          <p className="text-xs text-amber-400 mt-1">Foto (manuscrita, impresa o captura), PDF, Excel o CSV: se interpreta automáticamente</p>
         </button>
       )}
 
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
-        capture="environment"
+        accept="image/*,application/pdf,.pdf,.xls,.xlsx,.xlsm,.csv"
         className="hidden"
         onChange={e => elegirArchivo(e.target.files?.[0])}
       />
@@ -177,7 +201,14 @@ export default function SubidorFoto({ onAgregar }) {
       {preview && (
         <div className="space-y-3">
           <div className="flex items-start gap-3">
-            <img src={preview} alt="Vista previa" className="w-32 h-32 object-cover rounded-lg border" />
+            {esPlanilla(archivo) || esPdf(archivo) ? (
+              <div className="w-32 h-32 rounded-lg border flex flex-col items-center justify-center text-slate-300 bg-white/5">
+                <span className="text-4xl">{esPdf(archivo) ? '📄' : '📊'}</span>
+                <span className="text-[11px] mt-1">{esPdf(archivo) ? 'PDF' : 'Planilla'}</span>
+              </div>
+            ) : (
+              <img src={preview} alt="Vista previa" className="w-32 h-32 object-cover rounded-lg border" />
+            )}
             <div className="flex-1 space-y-2">
               <p className="text-sm text-slate-300">{archivo.name}</p>
               <div className="flex gap-2">
@@ -192,7 +223,7 @@ export default function SubidorFoto({ onAgregar }) {
                   onClick={() => inputRef.current?.click()}
                   className="text-sm text-slate-400 hover:text-slate-200 px-3 py-2"
                 >
-                  Cambiar foto
+                  Cambiar archivo
                 </button>
               </div>
               {cargando && (
@@ -208,7 +239,7 @@ export default function SubidorFoto({ onAgregar }) {
           )}
 
           {renglones.length === 0 && !cargando && preview && archivo && !error && tango && (
-            <p className="text-xs text-slate-400">No se encontró ningún producto en la foto.</p>
+            <p className="text-xs text-slate-400">No se encontró ningún producto en el archivo. Podés cargarlo a mano, más abajo.</p>
           )}
 
           {renglones.length > 0 && (
@@ -265,7 +296,7 @@ export default function SubidorFoto({ onAgregar }) {
                       </div>
 
                       {item.sugerencias.length === 0 ? (
-                        <p className="text-xs text-slate-400 mt-1.5">Sin coincidencias en el catálogo ni en Tango. Buscalo a mano.</p>
+                        <p className="text-xs text-slate-400 mt-1.5">Sin coincidencias en el catálogo ni en Tango. Buscalo a mano, más abajo.</p>
                       ) : (
                         <div className="mt-2 space-y-1">
                           {item.sugerencias.map((s, k) => {
@@ -322,6 +353,12 @@ export default function SubidorFoto({ onAgregar }) {
           )}
         </div>
       )}
+
+      <div className="border-t border-white/10 pt-4 space-y-2">
+        <p className="etiqueta">¿Falta algo o la IA no lo entendió? Cargalo a mano</p>
+        <p className="text-xs text-slate-400">Buscá el producto y se agrega al pedido, igual que en la carga manual.</p>
+        <BuscadorProducto onAgregar={onAgregar} config={config} sinFoco />
+      </div>
     </div>
   )
 }

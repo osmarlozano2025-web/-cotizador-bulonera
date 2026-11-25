@@ -42,20 +42,6 @@ function firmarToken(array $usuario): string
     return "$header.$payload.$firma";
 }
 
-/** Token de un cliente logueado: no tiene rol/permisos en la base, se fijan siempre igual. */
-function firmarTokenCliente(array $cliente): string
-{
-    $header = base64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
-    $payload = base64UrlEncode(json_encode([
-        'tipo' => 'cliente',
-        'clienteId' => $cliente['id'],
-        'iat' => time(),
-        'exp' => time() + SESION_SEGUNDOS,
-    ]));
-    $firma = base64UrlEncode(hash_hmac('sha256', "$header.$payload", secretoJwt(), true));
-    return "$header.$payload.$firma";
-}
-
 function verificarToken(string $token): ?array
 {
     $partes = explode('.', $token);
@@ -116,20 +102,8 @@ function requireAuth(): array
     $auth = obtenerAuth();
     if (!$auth) jsonError('No autenticado', 401);
 
-    // Un cliente logueado no es una fila de `personal`: se revalida contra
-    // `clientes` y siempre tiene el mismo rol/permisos fijo, sin excepciones,
-    // así ninguna cuenta de cliente puede terminar viendo otra pantalla.
-    if (($auth['tipo'] ?? null) === 'cliente') {
-        $stmt = obtenerPDO()->prepare(
-            'SELECT id FROM clientes WHERE id = ? AND passwordHash IS NOT NULL AND emailVerificado = 1'
-        );
-        $stmt->execute([$auth['clienteId']]);
-        if (!$stmt->fetch()) jsonError('Tu cuenta ya no existe o no está confirmada', 401);
-
-        $auth['rol'] = 'Cliente';
-        $auth['permisos'] = ['secciones' => ['nuevo-pedido'], 'puedeAprobarFamilias' => false, 'puedeEnviarCliente' => false];
-        return $cache = $auth;
-    }
+    // Los clientes ya no ingresan a la app: una sesión vieja de cliente no sirve.
+    if (($auth['tipo'] ?? null) === 'cliente') jsonError('Los clientes ya no ingresan a la aplicación', 401);
 
     $stmt = obtenerPDO()->prepare('SELECT rol, permisos, activo FROM personal WHERE id = ?');
     $stmt->execute([$auth['id']]);

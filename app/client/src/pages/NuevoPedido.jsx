@@ -5,7 +5,6 @@ import SubidorFoto from '../components/SubidorFoto'
 import BuscadorProducto from '../components/BuscadorProducto'
 import TablaProductos from '../components/TablaProductos'
 import { crearAprobacion, condicionesDePago, obtenerConfiguraciones } from '../utils/aprobaciones'
-import { useAuth, authHeaders } from '../context/AuthContext'
 
 const BORRADOR_KEY = 'cb_pedido_borrador'
 
@@ -27,11 +26,6 @@ function leerBorrador() {
 
 export default function NuevoPedido() {
   const navigate = useNavigate()
-  const { user, token } = useAuth()
-  // Un cliente logueado hace su propio pedido: no elige a quién factura,
-  // siempre es a sí mismo. Ver requireAuth()/rol 'Cliente' en el backend,
-  // que además ignora cualquier otro cliente que llegue en el pedido.
-  const esCliente = user?.rol === 'Cliente'
   const borrador = useRef(leerBorrador()).current
   const [cliente, setCliente] = useState(() => borrador?.cliente ?? null)
   const [items, setItems] = useState(() => borrador?.items ?? [])
@@ -39,8 +33,6 @@ export default function NuevoPedido() {
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState('')
   const [condicionPago, setCondicionPago] = useState(() => borrador?.condicionPago ?? 'contado')
-  // Un pedido directo no le pide confirmación al cliente: ya la dio.
-  const [pedidoDirecto, setPedidoDirecto] = useState(() => borrador?.pedidoDirecto ?? false)
   const [config, setConfig] = useState(null)
   // El descuento de la ficha se muestra pero sólo entra en el precio si la configuración lo indica.
   const aplicaDescCliente = config?.aplicar_descuento_cliente === true
@@ -53,15 +45,6 @@ export default function NuevoPedido() {
     obtenerConfiguraciones().then(setConfig).catch(() => {})
   }, [])
 
-  // El cliente logueado siempre es su propia ficha: se trae fija, no se elige.
-  useEffect(() => {
-    if (!esCliente || !user?.clienteId) return
-    fetch(`/api/clientes/${user.clienteId}`, { headers: authHeaders(token) })
-      .then(r => r.json())
-      .then(setCliente)
-      .catch(() => {})
-  }, [esCliente, user?.clienteId, token])
-
   // Se guarda en cada cambio. Con el pedido vacío no hay nada que recuperar,
   // así que se limpia en vez de dejar un borrador fantasma.
   useEffect(() => {
@@ -71,13 +54,13 @@ export default function NuevoPedido() {
     }
     try {
       localStorage.setItem(BORRADOR_KEY, JSON.stringify({
-        cliente, items, modo, condicionPago, pedidoDirecto, descuentosFamilia,
+        cliente, items, modo, condicionPago, descuentosFamilia,
       }))
     } catch {
       // localStorage lleno o bloqueado: no hay forma de persistir, se sigue
       // igual con el pedido en memoria nada más.
     }
-  }, [cliente, items, modo, condicionPago, pedidoDirecto, descuentosFamilia])
+  }, [cliente, items, modo, condicionPago, descuentosFamilia])
 
   const descartarBorrador = () => {
     localStorage.removeItem(BORRADOR_KEY)
@@ -85,7 +68,6 @@ export default function NuevoPedido() {
     setItems([])
     setModo(null)
     setCondicionPago('contado')
-    setPedidoDirecto(false)
     setDescuentosFamilia({})
     setAvisoBorrador(false)
   }
@@ -106,9 +88,8 @@ export default function NuevoPedido() {
         {
           items,
           condicionPago,
-          // Un cliente ya confirmó al enviarlo él mismo: no hace falta
-          // mandarle un link aparte para que confirme lo que acaba de mandar.
-          tipoOrigen: (esCliente || pedidoDirecto) ? 'directo' : 'cotizacion',
+          // Todos los pedidos son directos: no se le manda nada al cliente para que confirme.
+          tipoOrigen: 'directo',
           descuentosFamilia,
         },
         cliente
@@ -144,7 +125,7 @@ export default function NuevoPedido() {
         <div>
           <h2 className="text-2xl font-bold text-slate-100">Nuevo pedido</h2>
           <p className="text-sm text-slate-400">
-            Se divide solo por familia, un depósito por cada una.
+            Se divide solo por depósito: Central y Tolsen.
           </p>
         </div>
 
@@ -182,13 +163,7 @@ export default function NuevoPedido() {
               <span className="chip bg-amber-500/20 text-amber-300">Obligatorio</span>
             )}
           </div>
-          {esCliente ? (
-            <div className="campo bg-white/5 cursor-default">
-              {cliente ? (cliente.razonSocial || cliente.nombre) : 'Cargando...'}
-            </div>
-          ) : (
-            <SelectorCliente value={cliente} onChange={setCliente} />
-          )}
+          <SelectorCliente value={cliente} onChange={setCliente} />
           {faltaCliente ? (
             <p className="text-xs text-amber-400 mt-1.5">
               Elegí un cliente para poder enviar el pedido a aprobación.
@@ -203,7 +178,7 @@ export default function NuevoPedido() {
           )}
         </div>
 
-        <div className={`grid gap-5 pt-4 border-t border-white/10 ${esCliente ? '' : 'sm:grid-cols-2'}`}>
+        <div className="grid gap-5 pt-4 border-t border-white/10 sm:max-w-sm">
           <div>
             <label className="etiqueta block mb-1.5">Condición de pago</label>
             <select
@@ -217,25 +192,6 @@ export default function NuevoPedido() {
             </select>
           </div>
 
-          {!esCliente && (
-            <div>
-              <label className="etiqueta block mb-1.5">Tipo de pedido</label>
-              <label className="flex items-start gap-2.5 cursor-pointer border border-white/10 rounded-xl px-3 py-2 hover:bg-white/5 transition">
-                <input
-                  type="checkbox"
-                  checked={pedidoDirecto}
-                  onChange={e => setPedidoDirecto(e.target.checked)}
-                  className="mt-0.5 accent-[var(--cb-600)]"
-                />
-                <span className="text-sm text-slate-200">
-                  Pedido directo
-                  <span className="block text-[11px] text-slate-400">
-                    El cliente ya lo confirmó: no se le manda link.
-                  </span>
-                </span>
-              </label>
-            </div>
-          )}
         </div>
       </div>
 
@@ -249,9 +205,9 @@ export default function NuevoPedido() {
             >
               <span className="text-3xl">📷</span>
               <span className="font-semibold text-slate-200 group-hover:text-amber-400 text-sm">
-                Foto del pedido
+                Foto, PDF o planilla
               </span>
-              <span className="text-xs text-slate-400">Lo lee la IA</span>
+              <span className="text-xs text-slate-400">Lo lee la IA (foto, PDF, Excel o CSV)</span>
             </button>
             <button
               onClick={() => setModo('manual')}
@@ -271,7 +227,7 @@ export default function NuevoPedido() {
         <div className="tarjeta">
           <div className="tarjeta-titulo">
             <span className="etiqueta">
-              {modo === 'foto' ? 'Foto del pedido' : 'Agregar productos'}
+              {modo === 'foto' ? 'Foto, PDF o planilla del pedido' : 'Agregar productos'}
             </span>
             <button
               onClick={() => setModo(null)}
@@ -282,7 +238,7 @@ export default function NuevoPedido() {
           </div>
           <div className="p-5">
             {modo === 'foto'
-              ? <SubidorFoto onAgregar={agregarProducto} />
+              ? <SubidorFoto onAgregar={agregarProducto} config={config} />
               : <BuscadorProducto onAgregar={agregarProducto} config={config} />}
           </div>
         </div>
@@ -302,8 +258,7 @@ export default function NuevoPedido() {
               config={config}
               condicionPago={condicionPago}
               descuentosFamilia={descuentosFamilia}
-              onDescuentoFamilia={esCliente ? undefined : cambiarDescuentoFamilia}
-              bloquearDescuentos={esCliente}
+              onDescuentoFamilia={cambiarDescuentoFamilia}
             />
           </div>
         </div>

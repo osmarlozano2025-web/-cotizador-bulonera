@@ -354,11 +354,6 @@ function rutaAprobacionesCrear(): void
     $body = cuerpoJson();
     $pedido = $body['pedido'] ?? null;
     $cliente = $body['cliente'] ?? [];
-    // Un cliente logueado sólo puede cotizar para sí mismo: se ignora
-    // cualquier cliente que venga en el cuerpo del pedido.
-    if (($auth['rol'] ?? null) === 'Cliente') {
-        $cliente = ['id' => $auth['clienteId']];
-    }
 
     if (empty($pedido['items'])) jsonError('Pedido vacío', 400);
     // Sin cliente no hay pedido: los descuentos y la proforma dependen de él.
@@ -377,8 +372,8 @@ function rutaAprobacionesCrear(): void
     // La ficha conserva su descuento, pero no se aplica al precio (ver aplicaDescuentoCliente).
     $descuento = descuentoClienteAplicado($pdo, (float) $ficha['descuento']);
     $condicionPago = condicionPagoValida($cfg, $pedido['condicionPago'] ?? null);
-    // 'directo' saltea la confirmación del cliente (requisito 6 del análisis).
-    $tipoOrigen = ($pedido['tipoOrigen'] ?? '') === 'directo' ? 'directo' : 'cotizacion';
+    // Todos los pedidos son directos: el cliente no confirma nada, se factura apenas aprueban los depósitos.
+    $tipoOrigen = 'directo';
 
     $id = (string) round(microtime(true) * 1000);
     $token = bin2hex(random_bytes(16));
@@ -779,63 +774,13 @@ function rutaAprobacionesAprobarFamilia(string $id): void
 
 function rutaAprobacionesConfirmarObtener(string $token): void
 {
-    // Link público: sin sesión, así que se frena el probar tokens al azar.
-    limitar('confirmar:' . ipCliente(), 60, 600, 'confirmar');
+    // La proforma se abre desde la app, con sesión: ya no hay link público para clientes.
+    requireAuth();
     if (!preg_match('/^[a-f0-9]{32}$/', $token)) jsonError('No encontrado', 404);
     $pdo = obtenerPDO();
     $pedido = buscarPorToken($pdo, $token);
     if (!$pedido) jsonError('No encontrado', 404);
     if ($pedido['estado'] === 'en_aprobacion') jsonError('Todavía no está listo para confirmar', 409);
-    jsonSalida($pedido);
-}
-
-function rutaAprobacionesConfirmarPost(string $token): void
-{
-    limitar('confirmar:' . ipCliente(), 60, 600, 'confirmar');
-    if (!preg_match('/^[a-f0-9]{32}$/', $token)) jsonError('No encontrado', 404);
-    $pdo = obtenerPDO();
-    $pedido = buscarPorToken($pdo, $token);
-    if (!$pedido) jsonError('No encontrado', 404);
-    if ($pedido['estado'] === 'en_aprobacion') jsonError('Todavía no está listo para confirmar', 409);
-
-    $pdo->prepare("UPDATE aprobaciones SET estado = 'confirmado', fechaConfirmacion = NOW() WHERE token = ?")->execute([$token]);
-
-    registrarEvento($pdo, $pedido['id'], 'cambio_estado', [
-        'estadoAnterior' => $pedido['estado'],
-        'estadoNuevo' => 'confirmado',
-        'usuarioNombre' => $pedido['clienteNombre'],
-        'detalle' => 'El cliente confirmó la cotización desde el link público',
-    ]);
-
-    jsonSalida(buscarPorToken($pdo, $token));
-}
-
-function rutaAprobacionesMarcarEnviado(string $id): void
-{
-    $auth = requireAuth();
-    bloquearCliente($auth);
-
-    // Mandarle la cotización al cliente es una atribución comercial: el
-    // depósito aprueba stock, no habla con el cliente.
-    $puedeEnviar = in_array($auth['rol'] ?? '', ROLES_ADMIN, true)
-        || !empty($auth['permisos']['puedeEnviarCliente']);
-    if (!$puedeEnviar) jsonError('No tenés permiso para enviar cotizaciones al cliente', 403);
-
-    $pdo = obtenerPDO();
-
-    $stmt = $pdo->prepare('UPDATE aprobaciones SET fechaEnvioCliente = NOW() WHERE id = ? AND fechaEnvioCliente IS NULL');
-    $stmt->execute([$id]);
-
-    if ($stmt->rowCount() > 0) {
-        registrarEvento($pdo, $id, 'enviado_cliente', [
-            'usuarioId' => $auth['id'],
-            'usuarioNombre' => nombreUsuario($pdo, $auth['id']),
-            'detalle' => 'Cotización enviada al cliente',
-        ]);
-    }
-
-    $pedido = buscarPorId($pdo, $id);
-    if (!$pedido) jsonError('No encontrado', 404);
     jsonSalida($pedido);
 }
 
@@ -1049,4 +994,92 @@ function rutaAprobacionesEnviarTango(string $id, string $familia): void
         'detalle' => $detalle,
     ]);
     jsonSalida(['ok' => true, 'idTango' => $idTango, 'numero' => $numero, 'detalle' => $detalle]);
+}
+
+/**
+ * PUT /aprobaciones/:id/cantidades {"items": [{"id": 12, "cantidad": 90}, ...]}
+ *
+ * Lo que el depósito anota a mano en la nota cuando entrega otra cantidad que
+ * la pedida. Queda en el renglón (cantidadConfirmada), con una leyenda que dice
+ * qué se pidió y qué se entrega, y en el historial del pedido. El total se
+ * recalcula y lo que se facture en Tango sale con la cantidad real.
+ *
+ * A diferencia de confirmar un renglón, se puede corregir aunque el depósito ya
+ * haya aprobado: para eso está la nota impresa, que se completa al preparar.
+ * Una cantidad en 0 es "no se entrega" y el renglón queda como sin stock.
+ */
+function rutaAprobacionesCantidades(string $id): void
+{
+    $auth = requireAuth();
+    requireRole($auth, [...ROLES_ADMIN, 'Deposito']);
+    $pdo = obtenerPDO();
+
+    $pedido = $pdo->prepare('SELECT id FROM aprobaciones WHERE id = ?');
+    $pedido->execute([$id]);
+    if (!$pedido->fetch()) jsonError('No encontrado', 404);
+
+    $lista = cuerpoJson()['items'] ?? null;
+    if (!is_array($lista) || !$lista || count($lista) > 300) jsonError('Faltan los renglones a modificar', 422);
+
+    $soloFamilias = familiaPermitida($pdo, $auth);
+    $quien = nombreUsuario($pdo, $auth['id']);
+    $cambios = [];
+
+    $pdo->beginTransaction();
+    try {
+        foreach ($lista as $x) {
+            $itemId = (string) ($x['id'] ?? '');
+            if ($itemId === '' || !is_numeric($x['cantidad'] ?? null)) throw new RuntimeException('Cantidad inválida');
+            $nueva = round((float) $x['cantidad'], 2);
+            if ($nueva < 0 || $nueva > 1000000) throw new RuntimeException('Cantidad inválida');
+
+            $stmt = $pdo->prepare(
+                'SELECT i.*, s.familia FROM aprobaciones_items i
+                   JOIN aprobaciones_subpedidos s ON s.id = i.subpedidoId
+                  WHERE i.id = ? AND s.aprobacionId = ?'
+            );
+            $stmt->execute([$itemId, $id]);
+            $item = $stmt->fetch();
+            if (!$item) throw new RuntimeException('Un renglón no pertenece a este pedido');
+            if ($soloFamilias !== null && !in_array($item['familia'], $soloFamilias, true)) {
+                throw new RuntimeException('Ese producto no pertenece a tu depósito');
+            }
+            if ($item['estado'] === 'sin_stock') continue;
+
+            $pedida = (float) $item['cantidad'];
+            $actual = (float) ($item['cantidadConfirmada'] ?? $item['cantidad']);
+            if (abs($nueva - $actual) < 0.001) continue;
+
+            if ($nueva == 0.0) {
+                $leyenda = sprintf('Se pidió %s y no se entregó (anotado en la nota de depósito por %s)', $pedida, $quien);
+                $pdo->prepare("UPDATE aprobaciones_items SET estado = 'sin_stock', cantidadConfirmada = 0, nota = ? WHERE id = ?")
+                    ->execute([$leyenda, $itemId]);
+            } else {
+                // Si se vuelve a la cantidad pedida, ya no hay nada que aclarar: la leyenda se saca.
+                $leyenda = abs($nueva - $pedida) < 0.001
+                    ? null
+                    : sprintf('Se pidió %s y se entrega %s (cambiado en la nota de depósito por %s)', $pedida, $nueva, $quien);
+                $nuevoEstado = $item['estado'] === 'pendiente' ? 'confirmado' : $item['estado'];
+                $pdo->prepare('UPDATE aprobaciones_items SET estado = ?, cantidadConfirmada = ?, nota = ? WHERE id = ?')
+                    ->execute([$nuevoEstado, $nueva, $leyenda, $itemId]);
+            }
+            $cambios[] = ['item' => $item, 'pedida' => $pedida, 'antes' => $actual, 'ahora' => $nueva];
+        }
+        $pdo->commit();
+    } catch (RuntimeException $e) {
+        $pdo->rollBack();
+        jsonError($e->getMessage(), 422);
+    }
+
+    foreach ($cambios as $c) {
+        registrarEvento($pdo, $id, 'cantidad_modificada', [
+            'itemId' => (int) $c['item']['id'],
+            'usuarioId' => $auth['id'],
+            'usuarioNombre' => $quien,
+            'detalle' => sprintf('%s: se pidió %s, se entrega %s (antes %s)', $c['item']['descripcion'], $c['pedida'], $c['ahora'], $c['antes']),
+        ]);
+    }
+
+    if ($cambios) recalcularTotal($pdo, $id);
+    jsonSalida(buscarPorId($pdo, $id, $soloFamilias));
 }

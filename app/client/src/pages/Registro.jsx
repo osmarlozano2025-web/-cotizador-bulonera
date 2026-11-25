@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
+/** Alta del personal. Los clientes no tienen cuenta: no ingresan a la aplicación. */
 async function registrarPersonal({ nombre, email, password }) {
   const res = await fetch('/api/auth/registrar-personal', {
     method: 'POST',
@@ -12,23 +13,9 @@ async function registrarPersonal({ nombre, email, password }) {
   return data
 }
 
-async function registrarCliente({ identificador, password }) {
-  const res = await fetch('/api/auth/registrar-cliente', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identificador, password }),
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Error al registrarse')
-  return data
-}
-
 export default function Registro() {
-  const [params] = useSearchParams()
-  const [tipo, setTipo] = useState(params.get('tipo') === 'cliente' ? 'cliente' : 'personal')
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
-  const [identificador, setIdentificador] = useState('')
   const [password, setPassword] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [error, setError] = useState('')
@@ -42,11 +29,7 @@ export default function Registro() {
     if (password.length < 8) { setError('La contraseña tiene que tener al menos 8 caracteres'); return }
     setCargando(true)
     try {
-      if (tipo === 'cliente') {
-        await registrarCliente({ identificador, password })
-      } else {
-        await registrarPersonal({ nombre, email, password })
-      }
+      await registrarPersonal({ nombre, email, password })
       setEnviado(true)
     } catch (e) {
       setError(e.message)
@@ -82,48 +65,20 @@ export default function Registro() {
           </div>
           <div>
             <p className="text-lg font-semibold text-white leading-tight">Córdoba Bulones</p>
-            <p className="text-[11px] text-slate-400">Crear cuenta</p>
+            <p className="text-[11px] text-slate-400">Crear cuenta del equipo</p>
           </div>
         </div>
 
-        <div className="flex mb-4 rounded-lg overflow-hidden border border-white/10 text-sm">
-          <button
-            type="button"
-            onClick={() => { setTipo('personal'); setError('') }}
-            className={`flex-1 py-2 font-medium transition ${tipo === 'personal' ? 'bg-[var(--cb-600)] text-white' : 'text-slate-400 hover:bg-white/5'}`}
-          >
-            Soy personal
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTipo('cliente'); setError('') }}
-            className={`flex-1 py-2 font-medium transition ${tipo === 'cliente' ? 'bg-[var(--cb-600)] text-white' : 'text-slate-400 hover:bg-white/5'}`}
-          >
-            Soy cliente
-          </button>
-        </div>
-
         <form onSubmit={submit} className="tarjeta p-7 space-y-4">
-          {tipo === 'personal' ? (
-            <>
-              <div>
-                <label className="etiqueta block mb-1.5">Nombre y apellido</label>
-                <input value={nombre} onChange={e => setNombre(e.target.value)} required autoFocus className="campo" />
-              </div>
-              <div>
-                <label className="etiqueta block mb-1.5">Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                  autoComplete="email" className="campo" />
-              </div>
-            </>
-          ) : (
-            <div>
-              <label className="etiqueta block mb-1.5">Email o CUIT</label>
-              <input value={identificador} onChange={e => setIdentificador(e.target.value)} required autoFocus className="campo" />
-              <p className="text-[11px] text-slate-400 mt-1">Tiene que coincidir con el que ya tenés cargado como cliente.</p>
-            </div>
-          )}
-
+          <div>
+            <label className="etiqueta block mb-1.5">Nombre y apellido</label>
+            <input value={nombre} onChange={e => setNombre(e.target.value)} required autoFocus className="campo" />
+          </div>
+          <div>
+            <label className="etiqueta block mb-1.5">Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
+              autoComplete="email" className="campo" />
+          </div>
           <div>
             <label className="etiqueta block mb-1.5">Contraseña</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} required

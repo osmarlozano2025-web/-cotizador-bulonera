@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { obtenerAprobacion, FAMILIAS_LABEL, cantidadAEntregar } from '../utils/aprobaciones'
+import { obtenerAprobacion, guardarCantidades, FAMILIAS_LABEL, cantidadAEntregar } from '../utils/aprobaciones'
 
 /**
  * Comprobante para el depósito: código, descripción, medida y cantidad.
@@ -78,10 +78,52 @@ export default function NotaDeposito() {
       .finally(() => setCargando(false))
   }, [id])
 
+  // Lo que el depósito anota en "Otra cant.": renglón -> texto. Arranca con lo ya modificado.
+  const [valores, setValores] = useState({})
+  const [guardando, setGuardando] = useState(false)
+  const [aviso, setAviso] = useState(null) // { ok: boolean, texto: string }
+
+  useEffect(() => {
+    if (!pedido) return
+    const v = {}
+    for (const sub of pedido.subpedidos) {
+      for (const it of sub.items) {
+        if (it.cantidadConfirmada != null && Number(it.cantidadConfirmada) !== Number(it.cantidad)) {
+          v[it.id] = String(Number(it.cantidadConfirmada))
+        }
+      }
+    }
+    setValores(v)
+  }, [pedido])
+
   if (cargando) return <div className="p-8 text-center text-gray-400">Cargando...</div>
   if (error || !pedido) return <div className="p-8 text-center text-red-600">{error || 'Pedido no encontrado.'}</div>
 
   const fecha = new Date(pedido.fechaCreacion).toLocaleDateString('es-AR')
+
+  // Los renglones donde lo anotado es distinto de lo que se está entregando hoy.
+  const pendientesDeGuardar = pedido.subpedidos
+    .flatMap(sub => sub.items)
+    .filter(it => it.estado !== 'sin_stock' && (valores[it.id] ?? '') !== '' && Number(valores[it.id]) !== Number(cantidadAEntregar(it)))
+    .map(it => ({ id: it.id, cantidad: Number(valores[it.id]) }))
+
+  const guardar = async () => {
+    setGuardando(true)
+    setAviso(null)
+    try {
+      const actualizado = await guardarCantidades(id, pendientesDeGuardar)
+      setPedido(actualizado)
+      setAviso({ ok: true, texto: 'Cantidades guardadas en el pedido.' })
+    } catch (e) {
+      setAviso({ ok: false, texto: e.message })
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const cambiadas = pedido.subpedidos.flatMap(sub => sub.items).filter(
+    it => it.cantidadConfirmada != null && Number(it.cantidadConfirmada) !== Number(it.cantidad)
+  )
 
   return (
     <div className="documento min-h-screen bg-gray-100 print:bg-white">
@@ -107,9 +149,20 @@ export default function NotaDeposito() {
       `}</style>
 
       <div className="no-print sticky top-0 z-10 bg-white border-b px-6 py-3 flex items-center justify-between">
-        <Link to="/aprobaciones" className="text-sm text-gray-500 hover:text-gray-700">← Volver a Aprobaciones</Link>
+        <Link to="/aprobaciones" className="text-sm text-gray-500 hover:text-gray-700">← Volver a Depósito</Link>
         <div className="flex items-center gap-3">
+          {aviso && (
+            <span className={`text-xs ${aviso.ok ? 'text-emerald-600' : 'text-red-600'}`}>{aviso.texto}</span>
+          )}
           <span className="text-xs text-gray-400">Sin precios — para el depósito</span>
+          <button
+            onClick={guardar}
+            disabled={guardando || pendientesDeGuardar.length === 0}
+            title="Guarda en el pedido lo anotado en la columna Otra cant."
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-semibold px-4 py-2 rounded-lg text-sm transition"
+          >
+            {guardando ? 'Guardando…' : `Guardar cantidades${pendientesDeGuardar.length ? ` (${pendientesDeGuardar.length})` : ''}`}
+          </button>
           <button
             onClick={() => window.print()}
             className="bg-gray-800 hover:bg-black text-white font-semibold px-5 py-2 rounded-lg text-sm transition"
@@ -167,6 +220,11 @@ export default function NotaDeposito() {
                       {it.estado === 'reemplazo' && (
                         <span className="ml-1 text-xs font-semibold text-gray-500">(reemplazo)</span>
                       )}
+                      {it.cantidadConfirmada != null && Number(it.cantidadConfirmada) !== Number(it.cantidad) && (
+                        <span className="block text-[11px] font-semibold text-amber-700">
+                          Cantidad modificada: se pidió {it.cantidad}, se entrega {Number(it.cantidadConfirmada)}
+                        </span>
+                      )}
                     </td>
                     <td className="py-1.5 text-gray-500">{it.medida || '—'}</td>
                     {/* Granel o fracción, y en cuántos bultos cerrados: es lo
@@ -190,13 +248,22 @@ export default function NotaDeposito() {
                         </>
                       ) : '—'}
                     </td>
-                    <td className="py-1.5 text-right font-bold text-base">{cantidadAEntregar(it)}</td>
+                    <td className="py-1.5 text-right font-bold text-base">{it.cantidad}</td>
                     {/* Casillero para tildar a mano al preparar */}
                     <td className="py-1.5 text-right">
                       <span className="inline-block w-5 h-5 border-2 border-gray-400 rounded-sm align-middle"></span>
                     </td>
                     <td className="py-1.5 pl-2">
-                      <span className="block h-7 border border-gray-400 rounded-sm"></span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        inputMode="decimal"
+                        value={valores[it.id] ?? ''}
+                        onChange={e => setValores(v => ({ ...v, [it.id]: e.target.value }))}
+                        aria-label={`Otra cantidad para ${it.descripcion}`}
+                        className="block w-full h-7 border border-gray-400 rounded-sm text-center font-bold bg-white text-gray-900 focus:outline-none focus:border-emerald-600"
+                      />
                     </td>
                   </tr>
                 ))}
@@ -219,6 +286,17 @@ export default function NotaDeposito() {
               <p className="text-center text-gray-400 py-6 text-sm">
                 Este depósito no tiene productos para preparar.
               </p>
+            )}
+
+            {cambiadas.length > 0 && (
+              <div className="mt-5 border border-amber-400 bg-amber-50 rounded p-3 text-xs text-amber-900">
+                <p className="font-bold mb-1">Se cambió la cantidad pedida en estos renglones:</p>
+                <ul className="list-disc ml-5 space-y-0.5">
+                  {cambiadas.map(it => (
+                    <li key={it.id}>{it.descripcion}{it.medida ? ` (${it.medida})` : ''}: se pidió {it.cantidad}, se entrega {Number(it.cantidadConfirmada)}</li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {/* Los bultos son del envío completo, no de este depósito: se imprimen

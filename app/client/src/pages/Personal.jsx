@@ -179,10 +179,6 @@ export default function Personal() {
               <input type="checkbox" checked={form.permisos.puedeAprobarFamilias} onChange={() => toggleFlag('puedeAprobarFamilias')} />
               Puede aprobar stock por depósito
             </label>
-            <label className="flex items-center gap-2 text-sm text-slate-200">
-              <input type="checkbox" checked={form.permisos.puedeEnviarCliente} onChange={() => toggleFlag('puedeEnviarCliente')} />
-              Puede enviar cotización al cliente
-            </label>
           </div>
 
           {/* Va aparte de los otros dos: no suma un permiso, se los saca

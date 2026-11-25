@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { buscarProductos, obtenerFamilias } from '../utils/productosApi'
 import { etiquetaFamilia } from '../utils/aprobaciones'
 
-export default function BuscadorProducto({ onAgregar, config }) {
+export default function BuscadorProducto({ onAgregar, config, sinFoco = false }) {
   const [query, setQuery]       = useState('')
   const [familia, setFamilia]   = useState('')
   const [familias, setFamilias] = useState([])
@@ -46,7 +46,7 @@ export default function BuscadorProducto({ onAgregar, config }) {
           onChange={e => setQuery(e.target.value)}
           placeholder="Buscar por descripción, código o medida..."
           className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--cb-500)]"
-          autoFocus
+          autoFocus={!sinFoco}
         />
         {familias.length > 0 && (
           <select

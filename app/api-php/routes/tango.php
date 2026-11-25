@@ -112,7 +112,7 @@ function rutaTangoSincronizar(): void
     }
 
     $api = TangoApi::desdeConfig($pdo, 60);
-    $limite = microtime(true) + 45;
+    $limite = microtime(true) + 20;
     try {
         do {
             try { $pdo->query('SELECT 1'); } catch (Throwable $e) { $pdo = obtenerPDO(true); }

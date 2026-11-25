@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import {
-  listarAprobaciones, aprobarFamilia, marcarEnviado, confirmarItem, marcarSinStock,
+  listarAprobaciones, aprobarFamilia, confirmarItem, marcarSinStock,
   guardarBultos,
-  etiquetaFamilia, linkConfirmacion, linkWhatsApp, linkGmail, linkOutlook,
+  etiquetaFamilia,
   obtenerLog, etiquetaPago, obtenerConfiguraciones,
 } from '../utils/aprobaciones'
 import { buscarProductos } from '../utils/productosApi'
@@ -140,7 +140,7 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
             <span className="font-semibold">{item.cantidadConfirmada ?? item.cantidad}×</span>{' '}
             {item.descripcion}
             {/* Trazabilidad: si se confirma menos de lo pedido, se ve acá */}
-            {item.cantidadConfirmada != null && item.cantidadConfirmada < item.cantidad && !sinStock && (
+            {item.cantidadConfirmada != null && Number(item.cantidadConfirmada) !== Number(item.cantidad) && !sinStock && (
               <span className="ml-1 text-[11px] text-amber-400 font-medium">
                 (se pidieron {item.cantidad})
               </span>
@@ -256,53 +256,13 @@ function FilaItem({ item, pedidoId, familia, puedeRevisar, bloqueado, recargar }
   )
 }
 
-function EnviarCliente({ pedido, onEnviado }) {
-  const [copiado, setCopiado] = useState(false)
-  const link = linkConfirmacion(pedido.token)
-
-  const marcar = async () => { try { await marcarEnviado(pedido.id) } catch {} onEnviado?.() }
-
-  const copiar = async () => {
-    await navigator.clipboard.writeText(link)
-    setCopiado(true)
-    setTimeout(() => setCopiado(false), 2000)
-  }
-
-  return (
-    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 space-y-3">
-      <p className="text-sm font-semibold text-emerald-300">✓ Aprobado internamente — listo para enviar al cliente</p>
-      <div className="flex flex-wrap gap-2">
-        <a href={linkWhatsApp(pedido)} target="_blank" rel="noreferrer" onClick={marcar}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
-          Enviar por WhatsApp
-        </a>
-        <a href={linkGmail(pedido)} target="_blank" rel="noreferrer" onClick={marcar}
-          className="bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
-          Enviar por Gmail
-        </a>
-        <a href={linkOutlook(pedido)} target="_blank" rel="noreferrer" onClick={marcar}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
-          Enviar por Outlook
-        </a>
-        <button onClick={() => { copiar(); marcar() }}
-          className="border border-white/10 hover:bg-white/10 text-slate-300 text-xs font-semibold px-3 py-2 rounded-lg transition">
-          {copiado ? '✓ Copiado' : 'Copiar link'}
-        </button>
-      </div>
-      {pedido.fechaEnvioCliente && (
-        <p className="text-xs text-emerald-400">Enviado el {new Date(pedido.fechaEnvioCliente).toLocaleString('es-AR')}</p>
-      )}
-    </div>
-  )
-}
-
 const ICONO_EVENTO = {
   creado: '📝',
   stock_confirmado: '✓',
   sin_stock: '⚠',
   deposito_aprobado: '📦',
   cambio_estado: '→',
-  enviado_cliente: '✉',
+  cantidad_modificada: '✎',
 }
 
 /** Quién tocó qué y cuándo. Se carga sólo cuando se abre. */
@@ -494,7 +454,7 @@ function DatosCliente({ cliente, telefono, email }) {
   )
 }
 
-function TarjetaPedido({ pedido, config, recargar, puedeAprobar, puedeEnviar, usuarioId }) {
+function TarjetaPedido({ pedido, config, recargar, puedeAprobar, usuarioId }) {
   const [aprobando, setAprobando] = useState(null)
   const [errorFamilia, setErrorFamilia] = useState({})
   const [verHistorial, setVerHistorial] = useState(false)
@@ -649,11 +609,6 @@ function TarjetaPedido({ pedido, config, recargar, puedeAprobar, puedeEnviar, us
         })}
       </div>
 
-      {pedido.estado === 'esperando_confirmacion' && puedeEnviar && (
-        <div className="p-4 border-t">
-          <EnviarCliente pedido={pedido} onEnviado={recargar} />
-        </div>
-      )}
     </div>
   )
 }
@@ -665,7 +620,6 @@ export default function Aprobaciones() {
   const { state } = useLocation()
   const { user } = useAuth()
   const puedeAprobar = user?.permisos?.puedeAprobarFamilias ?? false
-  const puedeEnviar = user?.permisos?.puedeEnviarCliente ?? false
 
   const cargar = () => {
     listarAprobaciones().then(data => { setPedidos(data); setCargando(false) }).catch(() => setCargando(false))
@@ -680,7 +634,7 @@ export default function Aprobaciones() {
     <div className="space-y-5">
       <div>
         <h2 className="text-2xl font-bold text-slate-100">Aprobaciones en depósito</h2>
-        <p className="text-sm text-slate-400 mt-0.5">Pedidos separados por depósito, pendientes de aprobar stock o de confirmar con el cliente</p>
+        <p className="text-sm text-slate-400 mt-0.5">Pedidos separados por depósito, pendientes de aprobar el stock</p>
       </div>
 
       {state?.creado && (
@@ -704,7 +658,6 @@ export default function Aprobaciones() {
               config={config}
               recargar={cargar}
               puedeAprobar={puedeAprobar}
-              puedeEnviar={puedeEnviar}
               usuarioId={user?.id}
             />
           ))}

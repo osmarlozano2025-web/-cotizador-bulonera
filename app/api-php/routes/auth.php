@@ -49,18 +49,6 @@ function sinPasswordPersonal(array $u): array
     return $u;
 }
 
-function sinPasswordCliente(array $c): array
-{
-    unset($c['passwordHash']);
-    unset($c['tokenVerificacion']);
-    $c['tipo'] = 'cliente';
-    $c['clienteId'] = $c['id'];
-    $c['nombre'] = $c['nombre'] ?? '';
-    $c['rol'] = 'Cliente';
-    $c['permisos'] = ['secciones' => ['nuevo-pedido'], 'puedeAprobarFamilias' => false, 'puedeEnviarCliente' => false];
-    return $c;
-}
-
 function generarTokenVerificacion(): string
 {
     return bin2hex(random_bytes(32));
@@ -106,16 +94,6 @@ function rutaAuthLogin(): void
 function rutaAuthMe(): void
 {
     $auth = requireAuth();
-
-    if (($auth['tipo'] ?? null) === 'cliente') {
-        $pdo = obtenerPDO();
-        $stmt = $pdo->prepare('SELECT * FROM clientes WHERE id = ?');
-        $stmt->execute([$auth['clienteId']]);
-        $cliente = $stmt->fetch();
-        if (!$cliente) jsonError('Sesión inválida', 401);
-        jsonSalida(sinPasswordCliente($cliente));
-        return;
-    }
 
     $pdo = obtenerPDO();
     $stmt = $pdo->prepare('SELECT * FROM personal WHERE id = ? AND activo = 1');
@@ -189,88 +167,4 @@ function rutaAuthVerificarPersonal(string $token): void
     jsonSalida(['ok' => true]);
 }
 
-// ---------- Clientes ----------
 
-function rutaAuthRegistrarCliente(): void
-{
-    $body = cuerpoJson();
-    limitar('registro:' . ipCliente(), 5, 3600, 'registro');
-
-    $identificador = mb_substr(trim((string) ($body['identificador'] ?? '')), 0, 150);
-    $password = is_string($body['password'] ?? null) ? $body['password'] : '';
-
-    if (!$identificador || !$password) jsonError('Faltan datos obligatorios', 400);
-    if ($motivo = motivoPasswordDebil($password, $identificador)) jsonError($motivo, 400);
-
-    $pdo = obtenerPDO();
-    $stmt = $pdo->prepare('SELECT * FROM clientes WHERE email = ? OR cuit = ?');
-    $stmt->execute([$identificador, $identificador]);
-    $cliente = $stmt->fetch();
-
-    if (!$cliente) jsonError('No encontramos ningún cliente con ese email o CUIT. Comunicate con nosotros.', 404);
-    if ($cliente['passwordHash']) jsonError('Ese cliente ya tiene una cuenta. Iniciá sesión.', 409);
-    if (!$cliente['email']) jsonError('Ese cliente no tiene un email cargado. Comunicate con nosotros para agregarlo.', 400);
-
-    $hash = password_hash($password, PASSWORD_BCRYPT);
-    $token = generarTokenVerificacion();
-    $pdo->prepare(
-        'UPDATE clientes SET passwordHash = ?, emailVerificado = 0, tokenVerificacion = ?, tokenExpira = DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE id = ?'
-    )->execute([$hash, $token, $cliente['id']]);
-
-    $link = linkVerificacion('cliente', $token);
-    enviarMail($cliente['email'], 'Confirmá tu cuenta — Córdoba Bulones', "
-        <p>Hola " . h($cliente['nombre']) . ",</p>
-        <p>Confirmá tu email para poder ingresar y hacer pedidos:</p>
-        <p><a href=\"$link\">Confirmar mi cuenta</a></p>
-        <p style=\"color:#666;font-size:12px\">El link vence en 24 horas. Si vos no pediste esta cuenta, no hagas clic: ignorá este mail.</p>
-    ");
-
-    jsonSalida(['ok' => true, 'mensaje' => 'Te mandamos un mail para confirmar tu cuenta.']);
-}
-
-function rutaAuthVerificarCliente(string $token): void
-{
-    limitar('verificar:' . ipCliente(), 30, 600, 'verificar');
-    if (!preg_match('/^[a-f0-9]{64}$/', $token)) jsonError('El link no es válido', 400);
-    $pdo = obtenerPDO();
-    $stmt = $pdo->prepare('SELECT id, emailVerificado, tokenExpira FROM clientes WHERE tokenVerificacion = ?');
-    $stmt->execute([$token]);
-    $fila = $stmt->fetch();
-    if (!$fila) jsonError('El link no es válido', 400);
-
-    // Ídem personal: repetir la confirmación de un token ya usado debe ser un
-    // no-op exitoso, no un error (ver rutaAuthVerificarPersonal).
-    if (!(int) $fila['emailVerificado']) {
-        if (strtotime($fila['tokenExpira']) < time()) jsonError('El link venció', 400);
-        $pdo->prepare('UPDATE clientes SET emailVerificado = 1 WHERE id = ?')->execute([$fila['id']]);
-    }
-    jsonSalida(['ok' => true]);
-}
-
-function rutaAuthLoginCliente(): void
-{
-    $body = cuerpoJson();
-    $identificador = mb_substr(trim((string) ($body['identificador'] ?? '')), 0, 150);
-    $password = is_string($body['password'] ?? null) ? $body['password'] : '';
-
-    exigirLoginPermitido($identificador);
-
-    $pdo = obtenerPDO();
-    $stmt = $pdo->prepare('SELECT * FROM clientes WHERE (email = ? OR cuit = ?) AND passwordHash IS NOT NULL');
-    $stmt->execute([$identificador, $identificador]);
-    $cliente = $stmt->fetch();
-
-    if (!claveCorrecta($password, $cliente['passwordHash'] ?? null)) {
-        anotarLoginFallido($identificador, 'cliente');
-        jsonError('Usuario o contraseña incorrectos', 401);
-    }
-    olvidarIntentos('login:u:' . mb_strtolower($identificador));
-    if (!(int) $cliente['emailVerificado']) {
-        jsonError('Todavía no confirmaste tu email. Revisá tu correo.', 403);
-    }
-
-    jsonSalida([
-        'token' => firmarTokenCliente($cliente),
-        'user' => sinPasswordCliente($cliente),
-    ]);
-}

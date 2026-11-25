@@ -22,3 +22,10 @@ export async function obtenerFamilias() {
   if (!res.ok) throw new Error('No se pudieron obtener las familias')
   return res.json()
 }
+
+/** Los productos más pedidos (completado con los últimos cargados si hay pocos pedidos). */
+export async function obtenerFrecuentes(limite = 15) {
+  const res = await fetch(`/api/productos/frecuentes?limite=${limite}`, { headers: authHeaders() })
+  if (!res.ok) throw new Error('No se pudieron obtener los productos')
+  return res.json()
+}

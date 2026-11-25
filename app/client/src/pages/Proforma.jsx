@@ -186,8 +186,7 @@ export default function Proforma() {
     obtenerConfirmacion(token)
       .then(p => {
         setPedido(p)
-        // Los datos de la ficha vienen con el pedido: esta página la abre el
-        // cliente sin sesión, y el token del link es lo que la autoriza.
+        // Los datos de la ficha vienen con el pedido.
         setCliente(p.cliente || null)
       })
       .catch(e => setError(e.message))
@@ -208,8 +207,8 @@ export default function Proforma() {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="bg-white border rounded-xl p-8 text-center max-w-sm space-y-2">
-          <p className="text-gray-600 font-medium">Esta cotización todavía no fue confirmada por el cliente.</p>
-          <Link to={`/confirmar/${token}`} className="text-blue-600 hover:underline text-sm">Ir a la confirmación</Link>
+          <p className="text-gray-600 font-medium">Este pedido todavía está en aprobación de los depósitos.</p>
+          <Link to="/aprobaciones" className="text-blue-600 hover:underline text-sm">Ir a Depósito</Link>
         </div>
       </div>
     )
@@ -368,7 +367,7 @@ export default function Proforma() {
                     const cant = cantidadAEntregar(it)
                     const neto = precioFinal(it)
                     const lista = it.precioLista || neto
-                    const parcial = it.cantidadConfirmada != null && it.cantidadConfirmada < it.cantidad
+                    const parcial = it.cantidadConfirmada != null && Number(it.cantidadConfirmada) !== Number(it.cantidad)
                     const esReemplazo = it.estado === 'reemplazo'
                     const modo = it.modoVenta && it.modoVenta !== 'unidad' ? it.modoVenta : null
 

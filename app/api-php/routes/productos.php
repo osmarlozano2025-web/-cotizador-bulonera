@@ -6,6 +6,8 @@ require_once __DIR__ . '/../lib/openai.php';
 
 /** Lo que se le puede mandar a OpenAI, y hasta qué tamaño. */
 const IMAGEN_TIPOS = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+/** Tope del texto de una planilla (Excel/CSV): para no mandarle a la IA un archivo gigante. */
+const TEXTO_MAX_CARACTERES = 120000;
 const IMAGEN_MAX_BYTES = 8 * 1024 * 1024;
 
 function castProducto(array $p): array
@@ -241,33 +243,45 @@ function rutaProductosInterpretarImagen(): void
     // 30 por hora y por origen alcanzan para trabajar y frenan el abuso.
     limitar('imagen:' . ipCliente(), 30, 3600, 'interpretar-imagen');
 
-    if (!isset($_FILES['imagen'])) jsonError('No se recibió imagen', 400);
-
-    $archivo = $_FILES['imagen'];
-    if (($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        jsonError('La imagen no se subió completa, probá de nuevo', 400);
-    }
-    if (!is_uploaded_file($archivo['tmp_name'])) {
-        jsonError('Archivo inválido', 400);
-    }
-    if ($archivo['size'] > IMAGEN_MAX_BYTES) {
-        jsonError('La foto es muy pesada: el máximo son 8 MB', 413);
-    }
-
-    // El tipo lo decide el contenido del archivo, no lo que diga el navegador.
-    $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($archivo['tmp_name']);
-    if (!in_array($mimeType, IMAGEN_TIPOS, true)) {
-        jsonError('Eso no es una foto. Se aceptan JPG, PNG, WEBP y HEIC.', 415);
-    }
-
     @set_time_limit(180);
-    try {
-        $renglones = leerPedidoDeImagen(base64_encode(file_get_contents($archivo['tmp_name'])), $mimeType);
-    } catch (Throwable $e) {
-        error_log('lectura de foto: ' . $e->getMessage());
-        jsonError('No se pudo leer la foto: ' . mb_substr($e->getMessage(), 0, 200), 502);
+
+    // Planilla (Excel/CSV): el navegador la pasa a texto y llega como campo `texto`.
+    $texto = isset($_POST['texto']) && is_string($_POST['texto']) ? trim($_POST['texto']) : '';
+    if ($texto !== '' && !isset($_FILES['imagen'])) {
+        if (mb_strlen($texto) > TEXTO_MAX_CARACTERES) jsonError('La planilla es demasiado grande. Mandá menos renglones por vez.', 413);
+        $lectura = fn() => leerPedidoDeTexto($texto);
+    } else {
+        if (!isset($_FILES['imagen'])) jsonError('No se recibió ningún archivo', 400);
+
+        $archivo = $_FILES['imagen'];
+        if (($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            jsonError('El archivo no se subió completo, probá de nuevo', 400);
+        }
+        if (!is_uploaded_file($archivo['tmp_name'])) {
+            jsonError('Archivo inválido', 400);
+        }
+        if ($archivo['size'] > IMAGEN_MAX_BYTES) {
+            jsonError('El archivo es muy pesado: el máximo son 8 MB', 413);
+        }
+
+        // El tipo lo decide el contenido del archivo, no lo que diga el navegador.
+        $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($archivo['tmp_name']);
+        $contenido = base64_encode(file_get_contents($archivo['tmp_name']));
+        if ($mimeType === 'application/pdf') {
+            $lectura = fn() => leerPedidoDePdf($contenido);
+        } elseif (in_array($mimeType, IMAGEN_TIPOS, true)) {
+            $lectura = fn() => leerPedidoDeImagen($contenido, $mimeType);
+        } else {
+            jsonError('Ese archivo no se puede leer. Se aceptan foto (JPG, PNG, WEBP, HEIC), PDF, Excel o CSV.', 415);
+        }
     }
 
+    try {
+        $renglones = $lectura();
+    } catch (Throwable $e) {
+        error_log('lectura de pedido: ' . $e->getMessage());
+        jsonError('No se pudo leer el pedido: ' . mb_substr($e->getMessage(), 0, 200), 502);
+    }
     // La lectura con la IA tardó: MySQL pudo haber cerrado la conexión de antes.
     jsonSalida(resolverRenglones(obtenerPDO(true), $renglones));
 }
@@ -410,4 +424,46 @@ function rutaProductosGuardarDeTango(): void
         if ($fila = $stmt->fetch()) $salida[$a['codigo']] = castProducto($fila) + ['origen' => 'app'];
     }
     jsonSalida($salida);
+}
+
+/**
+ * GET /productos/frecuentes?limite=15 — los productos que más se pidieron, con
+ * cuántas veces y cuántas unidades. Si todavía hay pocos pedidos, se completa con
+ * los últimos productos cargados para que la pantalla nunca quede vacía.
+ */
+function rutaProductosFrecuentes(): void
+{
+    requireAuth();
+    $limite = min(max((int) ($_GET['limite'] ?? 15), 1), 50);
+    $pdo = obtenerPDO();
+
+    $stmt = $pdo->prepare(
+        "SELECT p.*, x.veces, x.unidades
+           FROM (SELECT codigo, COUNT(*) AS veces, SUM(COALESCE(cantidadConfirmada, cantidad)) AS unidades
+                   FROM aprobaciones_items
+                  WHERE codigo IS NOT NULL AND codigo <> '' AND estado <> 'sin_stock'
+                  GROUP BY codigo
+                  ORDER BY veces DESC, unidades DESC
+                  LIMIT $limite) x
+           JOIN productos p ON p.codigo = x.codigo
+          ORDER BY x.veces DESC, x.unidades DESC"
+    );
+    $stmt->execute();
+    $filas = $stmt->fetchAll();
+    $masPedidos = count($filas);
+
+    if ($masPedidos < $limite) {
+        $ids = array_column($filas, 'id') ?: [0];
+        $huecos = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("SELECT *, 0 AS veces, 0 AS unidades FROM productos WHERE id NOT IN ($huecos) ORDER BY id DESC LIMIT " . ($limite - $masPedidos));
+        $stmt->execute($ids);
+        $filas = array_merge($filas, $stmt->fetchAll());
+    }
+
+    jsonSalida(['masPedidos' => $masPedidos, 'productos' => array_map(function ($f) {
+        $veces = (int) $f['veces'];
+        $unidades = (float) $f['unidades'];
+        unset($f['veces'], $f['unidades']);
+        return castProducto($f) + ['veces' => $veces, 'unidades' => $unidades];
+    }, $filas)]);
 }
