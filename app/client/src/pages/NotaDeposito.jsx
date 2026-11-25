@@ -154,6 +154,8 @@ export default function NotaDeposito() {
                   <th className="text-left py-1.5 font-semibold w-32">Modo</th>
                   <th className="text-right py-1.5 font-semibold w-20">Cantidad</th>
                   <th className="w-16"></th>
+                  {/* Para anotar a mano si lo que se entrega no es lo que se pidió */}
+                  <th className="text-center py-1.5 font-semibold w-28">Otra cant.</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,6 +195,9 @@ export default function NotaDeposito() {
                     <td className="py-1.5 text-right">
                       <span className="inline-block w-5 h-5 border-2 border-gray-400 rounded-sm align-middle"></span>
                     </td>
+                    <td className="py-1.5 pl-2">
+                      <span className="block h-7 border border-gray-400 rounded-sm"></span>
+                    </td>
                   </tr>
                 ))}
 
@@ -203,6 +208,7 @@ export default function NotaDeposito() {
                     <td className="py-1.5 line-through">{it.medida || '—'}</td>
                     <td></td>
                     <td className="py-1.5 text-right font-semibold">SIN STOCK</td>
+                    <td></td>
                     <td></td>
                   </tr>
                 ))}
