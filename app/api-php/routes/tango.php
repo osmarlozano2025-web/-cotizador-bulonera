@@ -121,7 +121,12 @@ function rutaTangoSincronizar(): void
             $estado['nuevos'] += $r['nuevos'];
             $estado['actualizados'] += $r['actualizados'];
             $estado['pagina']++;
-            if ($r['fin']) { $estado['terminado'] = true; $estado['fin'] = date('c'); }
+            if ($r['fin']) {
+                $estado['terminado'] = true;
+                $estado['fin'] = date('c');
+                // Al terminar los artículos también se traen los clientes nuevos de Tango.
+                $estado['clientesNuevos'] = sincronizarClientesNuevos($pdo, $api)['nuevos'];
+            }
             guardarEstadoSincronizacion($pdo, $estado);
         } while (!$estado['terminado'] && microtime(true) < $limite);
     } catch (TangoApiException $e) {

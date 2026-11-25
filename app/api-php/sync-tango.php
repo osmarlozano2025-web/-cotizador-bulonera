@@ -6,6 +6,7 @@
  *   php api-php/sync-tango.php            todo el catálogo
  *   php api-php/sync-tango.php --desde 3  sigue desde la página 3
  *   php api-php/sync-tango.php --simular  cuenta lo que haría, sin guardar nada
+ *   php api-php/sync-tango.php --clientes trae sólo los clientes nuevos de Tango (no toca los que ya están)
  */
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 
@@ -19,6 +20,15 @@ if ($i !== false) $desde = (int) ($argv[$i + 1] ?? 0);
 $simular = in_array('--simular', $argv ?? [], true);
 $pdo = obtenerPDO();
 $api = TangoApi::desdeConfig($pdo, 120);
+
+if (in_array('--clientes', $argv ?? [], true)) {
+    $r = sincronizarClientesNuevos($pdo, $api, $simular);
+    echo ($simular ? '(SIMULACRO) ' : '') . "Clientes de Tango: {$r['leidos']} · nuevos: {$r['nuevos']} · omitidos (deshabilitados o vacíos): {$r['omitidos']}
+";
+    foreach ($r['nombres'] as $n) echo "   + $n
+";
+    exit(0);
+}
 $estado = ['inicio' => date('c'), 'pagina' => $desde, 'leidos' => 0, 'nuevos' => 0, 'actualizados' => 0, 'terminado' => false];
 $t0 = microtime(true);
 

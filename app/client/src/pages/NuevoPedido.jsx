@@ -42,6 +42,8 @@ export default function NuevoPedido() {
   // Un pedido directo no le pide confirmación al cliente: ya la dio.
   const [pedidoDirecto, setPedidoDirecto] = useState(() => borrador?.pedidoDirecto ?? false)
   const [config, setConfig] = useState(null)
+  // El descuento de la ficha se muestra pero sólo entra en el precio si la configuración lo indica.
+  const aplicaDescCliente = config?.aplicar_descuento_cliente === true
   // Descuento por familia de este pedido. Arranca en 0 y se puede mejorar
   // hasta el tope que tenga cada familia en Configuraciones.
   const [descuentosFamilia, setDescuentosFamilia] = useState(() => borrador?.descuentosFamilia ?? {})
@@ -149,7 +151,7 @@ export default function NuevoPedido() {
         {items.length > 0 && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/vista-previa', { state: { items, cliente } })}
+              onClick={() => navigate('/vista-previa', { state: { items, cliente: { ...cliente, descuento: aplicaDescCliente ? cliente?.descuento : 0 } } })}
               className="btn-suave"
             >
               Vista previa
@@ -193,8 +195,9 @@ export default function NuevoPedido() {
             </p>
           ) : (
             cliente.descuento > 0 && (
-              <p className="text-xs text-emerald-300 mt-1.5">
-                Descuento del cliente: {cliente.descuento}%
+              <p className="text-xs text-slate-400 mt-1.5">
+                Descuento en la ficha del cliente: {cliente.descuento}%
+                {!aplicaDescCliente && <span className="text-amber-300"> · no se aplica en el pedido</span>}
               </p>
             )
           )}
@@ -294,7 +297,7 @@ export default function NuevoPedido() {
           <div className="p-5">
             <TablaProductos
               items={items}
-              descuento={cliente?.descuento || 0}
+              descuento={aplicaDescCliente ? (cliente?.descuento || 0) : 0}
               onChange={setItems}
               config={config}
               condicionPago={condicionPago}

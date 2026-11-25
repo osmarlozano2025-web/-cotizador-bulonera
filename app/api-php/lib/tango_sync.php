@@ -236,3 +236,73 @@ function sincronizarPaginaArticulos(PDO $pdo, TangoApi $api, int $pagina, int $t
     $r = guardarArticulosTango($pdo, $articulos, $mapa, $extras, $simular);
     return ['pagina' => $pagina, 'leidos' => count($filas), 'fin' => count($filas) < $tam] + $r;
 }
+
+/**
+ * Trae a la app los clientes de Tango que todavía no tiene.
+ *
+ * Sólo agrega los nuevos: los que ya están no se tocan (su descuento, su
+ * cuenta y sus datos quedan como están). No trae los deshabilitados ni los
+ * vacíos ("." como nombre), que Tango deja de relleno.
+ *
+ * @return array ['leidos' => n, 'nuevos' => n, 'omitidos' => n, 'nombres' => [...]]
+ */
+function sincronizarClientesNuevos(PDO $pdo, TangoApi $api, bool $simular = false): array
+{
+    $tango = [];
+    for ($pagina = 0; $pagina < 60; $pagina++) {
+        $filas = $api->listar($api->proceso('clientes'), 500, $pagina);
+        foreach ($filas as $f) $tango[] = $f;
+        if (count($filas) < 500) break;
+    }
+
+    $codigos = array_map('trim', array_column($pdo->query('SELECT codigoCliente FROM clientes')->fetchAll(), 'codigoCliente'));
+    $yaEstan = array_flip($codigos);
+
+    // Los descuentos por grupo no cambian el precio hoy, pero la ficha los tiene: para un cliente nuevo
+    // se copian los del cliente más parecido (mismo descuento general).
+    $gruposPorDescuento = [];
+    foreach ($pdo->query('SELECT descuento, descBulGranel, descBulFraccion, descTorGranel, descTorFraccion, descVar, descTol FROM clientes')->fetchAll() as $c) {
+        $k = number_format((float) $c['descuento'], 2, '.', '');
+        $g = implode('|', [$c['descBulGranel'], $c['descBulFraccion'], $c['descTorGranel'], $c['descTorFraccion'], $c['descVar'], $c['descTol']]);
+        $gruposPorDescuento[$k][$g] = ($gruposPorDescuento[$k][$g] ?? 0) + 1;
+    }
+
+    $insertar = $pdo->prepare(
+        'INSERT INTO clientes (id, nombre, razonSocial, cuit, telefono, email, localidad, provincia, descuento, condicionPago, codigoCliente,
+                               vendedor, domicilio, transporte, descBulGranel, descBulFraccion, descTorGranel, descTorFraccion, descVar, descTol)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+
+    $cuenta = ['leidos' => count($tango), 'nuevos' => 0, 'omitidos' => 0, 'nombres' => []];
+    $pdo->beginTransaction();
+    try {
+        foreach ($tango as $fila) {
+            $c = clienteDesdeTango($fila);
+            if ($c['codigoCliente'] === '' || isset($yaEstan[$c['codigoCliente']])) continue;
+            $nombre = trim($c['nombre']);
+            if (!$c['habilitado'] || $nombre === '' || $nombre === '.') { $cuenta['omitidos']++; continue; }
+
+            $k = number_format((float) $c['descuento'], 2, '.', '');
+            $grupos = [$k, $k, $k, $k, $k, $k];
+            if (!empty($gruposPorDescuento[$k])) {
+                arsort($gruposPorDescuento[$k]);
+                $grupos = explode('|', (string) array_key_first($gruposPorDescuento[$k]));
+            }
+
+            $insertar->execute([
+                'C' . $c['codigoCliente'], mb_substr($nombre, 0, 150), mb_substr($c['razonSocial'], 0, 150), mb_substr($c['cuit'], 0, 20),
+                mb_substr($c['telefono'], 0, 40), mb_substr($c['email'], 0, 150), mb_substr($c['localidad'], 0, 100),
+                mb_substr($c['provincia'], 0, 100), (float) $c['descuento'], 'contado', $c['codigoCliente'],
+                mb_substr((string) ($c['vendedor']['nombre'] ?? ''), 0, 60), mb_substr($c['domicilio'], 0, 200),
+                mb_substr((string) ($c['transporte']['nombre'] ?? ''), 0, 150), ...$grupos,
+            ]);
+            $cuenta['nuevos']++;
+            $cuenta['nombres'][] = $c['codigoCliente'] . ' ' . $nombre;
+        }
+        $simular ? $pdo->rollBack() : $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+    return $cuenta;
+}

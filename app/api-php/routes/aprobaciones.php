@@ -374,7 +374,8 @@ function rutaAprobacionesCrear(): void
     $ficha = $stmt->fetch();
     if (!$ficha) jsonError('Ese cliente no existe', 404);
 
-    $descuento = (float) $ficha['descuento'];
+    // La ficha conserva su descuento, pero no se aplica al precio (ver aplicaDescuentoCliente).
+    $descuento = descuentoClienteAplicado($pdo, (float) $ficha['descuento']);
     $condicionPago = condicionPagoValida($cfg, $pedido['condicionPago'] ?? null);
     // 'directo' saltea la confirmación del cliente (requisito 6 del análisis).
     $tipoOrigen = ($pedido['tipoOrigen'] ?? '') === 'directo' ? 'directo' : 'cotizacion';

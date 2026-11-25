@@ -307,3 +307,27 @@ function descuentoEfectivo(array $desglose): float
     if ($base <= 0) return 0.0;
     return round((1 - $desglose['precioNeto'] / $base) * 100, 2);
 }
+
+/**
+ * El descuento de la ficha del cliente que realmente se aplica al precio.
+ *
+ * Los clientes que vienen de Tango traen su descuento y se conserva a la vista
+ * en la ficha, pero NO se aplica en los pedidos ni en lo que se factura. Para
+ * volver a aplicarlo basta poner la clave `aplicarDescuentoCliente` = 1 en la
+ * tabla config; no hace falta tocar código.
+ */
+function aplicaDescuentoCliente(PDO $pdo): bool
+{
+    static $aplica = null;
+    if ($aplica === null) {
+        $stmt = $pdo->prepare("SELECT valor FROM config WHERE clave = 'aplicarDescuentoCliente'");
+        $stmt->execute();
+        $aplica = trim((string) $stmt->fetchColumn()) === '1';
+    }
+    return $aplica;
+}
+
+function descuentoClienteAplicado(PDO $pdo, float $descuentoDeLaFicha): float
+{
+    return aplicaDescuentoCliente($pdo) ? $descuentoDeLaFicha : 0.0;
+}

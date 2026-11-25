@@ -84,6 +84,8 @@ function rutaConfiguracionesObtener() {
 
     jsonSalida([
         'depositos' => $depositos,
+        // Si el descuento de la ficha del cliente entra en el precio. Hoy no: se conserva a la vista.
+        'aplicar_descuento_cliente' => aplicaDescuentoCliente($pdo),
         // Un solo valor por familia: el tope de descuento que se puede dar en
         // el pedido. Negativo descuenta, positivo aumenta.
         'descuentos_familia' => $descuentos_familia,
